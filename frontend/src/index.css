@@ -1,0 +1,265 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Plus Jakarta Sans for UI and headings — geometric and slightly warm,
+       and deliberately not the Inter every other project here reaches for.
+       Inter carries post body text, where its larger x-height wins at 15px. */
+    --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    /* The one place the sticky page header's height is decided. PageHeader
+       applies it as its height and HomePage's tab strip uses it as its sticky
+       offset, so the two bars sit flush by construction. They used to carry
+       independent numbers (3.5rem here, 3.25rem there, ~2.6rem actually
+       rendered), which left a ten-pixel slot of feed scrolling between them. */
+    --header-h: 2.75rem;
+    /* BottomBar's real height, and the one place it is decided. Anything that
+       needs to clear the fixed mobile tab bar (MessagesPage's viewport-height
+       math, since its pinned composer can't rely on ordinary document
+       scroll) reads this instead of guessing a number — a guessed `4rem`
+       against an actual ~2.7rem bar left a visible strip of empty space
+       above the tab bar that had no purpose. */
+    --bottombar-h: 3.5rem;
+
+    /* Light. Never pure white: a barely violet-tinted ground keeps the whole
+       screen in the accent's temperature and stops the greys reading as a
+       framework default. */
+    --canvas: 252 251 254;
+    --surface: 255 255 255;
+    --raised: 255 255 255;
+    --sunken: 244 242 250;
+    --line: 232 228 240;
+    --line-strong: 213 207 227;
+    --ink: 26 21 40;
+    --ink-soft: 61 54 84;
+    --muted: 112 104 136;
+  }
+
+  /* The header title steps up at `sm`, so its height has to step with it. */
+  @media (min-width: 640px) {
+    :root {
+      --header-h: 2.875rem;
+    }
+  }
+
+  .dark {
+    /* Dark is violet-black rather than neutral slate, so the accent sits in
+       the same family as the ground instead of floating on top of it. */
+    --canvas: 14 12 21;
+    --surface: 22 19 32;
+    --raised: 30 26 43;
+    --sunken: 27 23 39;
+    --line: 42 36 58;
+    --line-strong: 60 52 82;
+    --ink: 241 238 248;
+    --ink-soft: 203 197 219;
+    --muted: 150 142 172;
+  }
+
+  /* The root size everything else is relative to. The base is a percentage so
+     it inherits whatever the reader's browser or OS is set to; `--font-scale`
+     is the in-app Text size control multiplying on top of it.
+
+     Phones start at 87.5% — a step below the desktop base — because the same
+     type that reads well in a 620px column is bulky in a 390px one. That is
+     what makes "Default" mean this device's default rather than one number
+     for every screen. */
+  html {
+    font-size: calc(87.5% * var(--font-scale, 1));
+    scrollbar-gutter: stable;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (min-width: 640px) {
+    html {
+      font-size: calc(100% * var(--font-scale, 1));
+    }
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading font-bold tracking-tight text-ink;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    @apply bg-primary-500/25 text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+    --tw-ring-offset-color: rgb(var(--canvas));
+  }
+
+  /* A scrollbar that belongs to the page rather than the OS. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-line-strong bg-clip-content;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted bg-clip-content;
+  }
+}
+
+@layer components {
+  /* Post text uses Inter and preserves the line breaks the author typed —
+     a post is written in a textarea, so its shape is part of what was said. */
+  /* 15px matches X's mobile body size exactly; what made ours read heavier was
+     the leading — 1.55 against their ~1.35. Tightened on small screens, where
+     the column is narrow and the extra air costs real rows of text, and
+     restored on wider ones where lines are long enough to need it. */
+  .post-text {
+    font-family: var(--font-body);
+    @apply whitespace-pre-wrap break-words text-[0.9375rem] leading-[1.38] text-ink-soft sm:leading-[1.55];
+  }
+
+  .handle {
+    font-family: var(--font-mono);
+    @apply text-[0.8125rem] text-muted;
+  }
+
+  .metric {
+    font-family: var(--font-mono);
+    @apply tabular-nums;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold
+      transition-all duration-150 active:scale-[0.97]
+      disabled:pointer-events-none disabled:opacity-45 disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white shadow-sm hover:bg-primary-700 hover:shadow-lift;
+  }
+
+  /* Disabled primary keeps the shape but drops to a neutral fill — a pale
+     tint of the brand colour reads as a rendering fault rather than a state. */
+  .btn-primary:disabled {
+    @apply bg-sunken text-muted shadow-none;
+  }
+
+  .btn-outline {
+    @apply btn border border-line-strong text-ink hover:border-line-strong hover:bg-sunken;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-sunken;
+  }
+
+  .btn-danger {
+    @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-700;
+  }
+
+  .btn-dark {
+    @apply btn bg-ink text-canvas hover:opacity-90;
+  }
+
+  .surface {
+    @apply border-line bg-surface;
+  }
+
+  .divider {
+    @apply border-b border-line;
+  }
+
+  /* Plain `1rem`, same as the sm+ rule below — the field tracks the Text size
+     control exactly, at every step including "Smaller". iOS Safari's
+     auto-zoom-on-focus for sub-16px inputs is handled at the viewport level
+     instead (index.html's maximum-scale=1), not with a font-size floor here.
+     A floor was tried first, but any hard minimum clamps every step below it
+     to the same value — with five steps on the scale now, that flattened
+     more than half the range in the input specifically, while the rest of
+     the page kept shrinking around it. */
+  .field {
+    @apply w-full rounded-xl border-line bg-surface px-3.5 py-2.5 text-ink
+      transition placeholder:text-muted focus:border-primary-500 focus:ring-2
+      focus:ring-primary-500/25;
+    font-size: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .field {
+      font-size: 0.875rem;
+    }
+  }
+
+  .card {
+    @apply rounded-card border border-line bg-surface;
+  }
+
+  /* Rail navigation: the active item gets a filled pill, not just bolder text.
+     Weight alone is too quiet to answer "where am I" at a glance. */
+  .rail-item {
+    @apply flex items-center gap-4 rounded-full py-2.5 pl-3 pr-5 font-medium text-ink-soft
+      transition hover:bg-sunken hover:text-ink;
+  }
+
+  .rail-item-active {
+    @apply bg-primary-600/10 font-bold text-primary-700 hover:bg-primary-600/15 hover:text-primary-700
+      dark:text-primary-300 dark:hover:text-primary-300;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded bg-sunken;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0,
+      rgb(var(--line) / 0.7) 50%,
+      transparent 100%
+    );
+    background-size: 500px 100%;
+    background-repeat: no-repeat;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-sunken px-2.5 py-1 text-xs font-semibold text-ink-soft;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Sticky headers sit on a blurred slice of the canvas rather than a solid
+     bar, so the feed visibly runs underneath them. */
+  .glass {
+    @apply bg-canvas/80 backdrop-blur-xl backdrop-saturate-150;
+  }
+}
+
+/* Motion is limited to a few places, and none of them run for a reader who has
+   asked the system for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

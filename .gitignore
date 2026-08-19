@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Uploaded media is user content, not source. The directory itself is kept so
+# the API has somewhere to write on a fresh clone.
+backend/public/media/*
+!backend/public/media/.gitkeep
+# Seed art is generated deterministically by scripts/generateImages.js but is
+# committed anyway, not regenerated on deploy — Render's filesystem is
+# ephemeral and the seeded DB's mediaManifest.json references these exact
+# paths, so without the files themselves every avatar/cover/post image on the
+# live site 404s.
+!backend/public/media/seed/

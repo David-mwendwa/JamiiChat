@@ -1,0 +1,54 @@
+# Render blueprint for the JamiiChat API. The React frontend deploys separately on
+# Netlify (see netlify.toml).
+#
+# This one service carries both the REST API and the WebSocket server — they
+# share a single HTTP server in server.js, so there is nothing extra to
+# provision for real-time. Render supports WebSockets on the free plan.
+#
+# Every `sync: false` var must be filled in from the Render dashboard on first
+# deploy — they are secrets or environment-specific URLs and are deliberately
+# not stored in the repo. backend/.env.example documents each one for local dev.
+services:
+  - type: web
+    name: jamii-api
+    runtime: node
+    plan: free
+    # Frankfurt: the free plan's regions are limited, and this one is a
+    # reasonable middle for a globally-used app.
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render injects PORT itself; server.js reads it.
+
+      # --- Database ---
+      # An Atlas connection string. No cluster is provisioned yet — create one,
+      # paste its URI here, and run `npm run seed` against it once. Local dev
+      # keeps using the workspace Docker Mongo.
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Auth ---
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 30d
+
+      # --- CORS allowlist ---
+      # The Netlify site URL, no trailing slash. This also governs which origin
+      # the Socket.IO handshake will accept, so a wrong value breaks real-time
+      # while leaving the REST API working — check it first if messages stop
+      # arriving in production but the feed still loads.
+      - key: PROD_FRONTEND_URL
+        sync: false
+
+# Uploaded avatars, post images and chat attachments are written to
+# backend/public/media on disk.
+# Render's filesystem is ephemeral, so anything uploaded in production is lost
+# on the next deploy. The seed artwork survives because it is committed to the
+# repo. Moving uploads to Cloudinary is the fix; it is not done yet.

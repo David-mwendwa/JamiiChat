@@ -1,0 +1,130 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import PageHeader from '../components/layout/PageHeader.jsx';
+import ProfileHeader from '../components/profile/ProfileHeader.jsx';
+import FeedList from '../components/feed/FeedList.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import PostSkeleton from '../components/ui/PostSkeleton.jsx';
+import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
+import { userApi } from '../api/index.js';
+import { compactCount } from '../lib/format.js';
+
+const ProfilePage = () => {
+  const { handle } = useParams();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+  const [status, setStatus] = useState('loading');
+  const [tab, setTab] = useState('posts');
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const { data } = await userApi.profile(handle);
+      setProfile(data.user);
+      setStatus('ready');
+    } catch {
+      setStatus('missing');
+    }
+  }, [handle]);
+
+  useEffect(() => {
+    setStatus('loading');
+    setTab('posts');
+    loadProfile();
+  }, [loadProfile]);
+
+  const fetcher = useCallback(
+    async (cursor) => {
+      const { data } = await userApi.posts(handle, {
+        cursor,
+        limit: 20,
+        replies: tab === 'replies' ? 'true' : undefined,
+      });
+      return { items: data.items, nextCursor: data.nextCursor, locked: data.locked };
+    },
+    [handle, tab]
+  );
+
+  const feed = useInfiniteFeed(fetcher, [handle, tab], `feed:profile:${handle}:${tab}`);
+
+  if (status === 'loading')
+    return (
+      <>
+        <PageHeader title="Profile" back />
+        <div className="h-36 skeleton sm:h-48" />
+        <PostSkeleton />
+      </>
+    );
+
+  if (status === 'missing')
+    return (
+      <>
+        <PageHeader title="Profile" back />
+        <EmptyState
+          title="This account does not exist"
+          description="The username may have changed, or the account may have been removed."
+          action={
+            <button type="button" className="btn-primary" onClick={() => navigate('/')}>
+              Back home
+            </button>
+          }
+        />
+      </>
+    );
+
+  const locked = profile.canViewPosts === false;
+
+  return (
+    <>
+      <PageHeader
+        title={profile.displayName}
+        subtitle={`${compactCount(profile.counts.posts)} posts`}
+        back
+      />
+
+      <ProfileHeader profile={profile} onUpdate={loadProfile} />
+
+      {locked ? (
+        <EmptyState
+          title="These posts are private"
+          description={`Follow @${profile.handle} to see what they post. They approve followers themselves.`}
+        />
+      ) : (
+        <>
+          <div className="divider flex">
+            {[
+              ['posts', 'Posts'],
+              ['replies', 'Posts and replies'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTab(value)}
+                aria-current={tab === value}
+                className="group relative flex-1 py-3.5 text-[0.9375rem] font-semibold transition hover:bg-sunken">
+                <span className={tab === value ? '' : 'text-muted'}>
+                  {label}
+                </span>
+                {tab === value && (
+                  <span className="absolute inset-x-0 bottom-0 mx-auto h-[3px] w-16 rounded-full bg-primary-600" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <FeedList
+            feed={feed}
+            onReply={(post) => navigate(`/post/${post.id}`)}
+            empty={
+              <EmptyState
+                title={`@${profile.handle} has not posted yet`}
+                description="When they do, their posts show up here."
+              />
+            }
+          />
+        </>
+      )}
+    </>
+  );
+};
+
+export default ProfilePage;

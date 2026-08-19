@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <!-- maximum-scale=1 stops iOS Safari's auto-zoom on focusing a sub-16px
+         input, which does not undo itself. That used to be handled by a
+         16px floor on .field's font-size instead, but the floor made the
+         field stop tracking the in-app Text size control below "Default" —
+         with a "Smaller" step now on the scale, most of the mobile range
+         collapsed to one size. Locking zoom here lets input text scale
+         exactly with the rest of the page; the trade-off is that pinch-zoom
+         is unavailable everywhere, not just on inputs. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <meta name="theme-color" content="#7c3aed" />
+    <meta
+      name="description"
+      content="JamiiChat — a place to post, follow and talk." />
+    <title>JamiiChat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
