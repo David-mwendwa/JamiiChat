@@ -79,6 +79,18 @@ const SettingsPage = () => {
     }
   };
 
+  // Back to the initials/gradient placeholder Avatar.jsx already renders for
+  // an empty string — not a delete-and-relist, just clearing the field.
+  const removeImage = async (kind) => {
+    try {
+      const { data } = await userApi.removeImage(kind);
+      setUser(data.user);
+      toast.success(kind === 'avatar' ? 'Photo removed' : 'Cover removed');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not remove that image'));
+    }
+  };
+
   const changePassword = async (event) => {
     event.preventDefault();
     setBusy(true);
@@ -122,13 +134,23 @@ const SettingsPage = () => {
       <Section title="Photos" description="Your picture and cover show on your profile.">
         <div className="flex items-center gap-4">
           <Avatar user={user} size="lg" link={false} />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-outline text-[0.8125rem]" onClick={() => avatarInput.current?.click()}>
               Change photo
             </button>
+            {user.avatar && (
+              <button type="button" className="btn-outline text-[0.8125rem]" onClick={() => removeImage('avatar')}>
+                Remove photo
+              </button>
+            )}
             <button type="button" className="btn-outline text-[0.8125rem]" onClick={() => coverInput.current?.click()}>
               Change cover
             </button>
+            {user.cover && (
+              <button type="button" className="btn-outline text-[0.8125rem]" onClick={() => removeImage('cover')}>
+                Remove cover
+              </button>
+            )}
           </div>
           <input
             ref={avatarInput}

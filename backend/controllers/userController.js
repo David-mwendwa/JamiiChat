@@ -106,6 +106,18 @@ export const uploadAvatar = [
   },
 ];
 
+// A blank `avatar`/`cover` isn't a missing image — Avatar.jsx (and the cover
+// slot) already render an initials/gradient placeholder for an empty string,
+// same as a brand-new account that never uploaded one. This exists so an
+// uploaded photo that has stopped resolving (the file behind an old path is
+// gone — Render's disk does not survive a redeploy) has a way back to that
+// placeholder instead of sitting as a permanently broken `<img>`.
+export const removeImage = async (req, res) => {
+  const kind = req.params.kind === 'cover' ? 'cover' : 'avatar';
+  const user = await User.findByIdAndUpdate(req.user._id, { [kind]: '' }, { new: true });
+  res.status(StatusCodes.OK).json({ status: 'success', user: user.toPrivate() });
+};
+
 export const follow = async (req, res) => {
   const target = await findByHandle(req.params.handle);
   if (String(target._id) === String(req.user._id))

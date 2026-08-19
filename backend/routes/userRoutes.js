@@ -6,6 +6,7 @@ import {
   updateMe,
   updateHandle,
   uploadAvatar,
+  removeImage,
   follow,
   unfollow,
   respondToRequest,
@@ -32,6 +33,7 @@ router.get('/blocked', protect, listBlocked);
 router.patch('/me', protect, updateMe);
 router.patch('/me/handle', protect, updateHandle);
 router.patch('/me/image/:kind', protect, uploadAvatar);
+router.delete('/me/image/:kind', protect, removeImage);
 
 router.get('/:handle', optionalAuth, getProfile);
 router.get('/:handle/posts', optionalAuth, getProfilePosts);

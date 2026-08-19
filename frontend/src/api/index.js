@@ -51,6 +51,7 @@ export const userApi = {
   updateMe: (payload) => apiClient.patch('/users/me', payload),
   updateHandle: (handle) => apiClient.patch('/users/me/handle', { handle }),
   uploadImage: (kind, formData) => apiClient.patch(`/users/me/image/${kind}`, formData),
+  removeImage: (kind) => apiClient.delete(`/users/me/image/${kind}`),
 };
 
 export const messageApi = {
