@@ -1,9 +1,12 @@
+import crypto from 'crypto';
 import { StatusCodes } from 'http-status-codes';
 import User from '../models/userModel.js';
 import { signToken, cookieOptions } from '../utils/token.js';
-import { BadRequestError, UnauthenticatedError } from '../errors/customErrors.js';
+import { BadRequestError, UnauthenticatedError, InternalServerError } from '../errors/customErrors.js';
 import { people, demoAccounts } from '../data/seedContent.js';
 import { isReservedHandle } from '../utils/reservedHandles.js';
+import { mailConfigured, sendTemplate } from '../utils/mailer.js';
+import { passwordReset } from '../utils/emailTemplates.js';
 
 // The token is set as an httpOnly cookie and also returned in the body: the
 // cookie carries normal navigation, and the body value is what the WebSocket
@@ -44,6 +47,94 @@ export const login = async (req, res) => {
 
   if (user.active === false) throw new UnauthenticatedError('This account has been deactivated');
 
+  sendAuth(res, user);
+};
+
+/**
+ * ## Password reset
+ *
+ * Two things this deliberately gets right that are easy to get wrong:
+ *
+ *  - An unknown address gets the same response as a known one. A form that
+ *    answers differently is a way to test which emails have accounts here.
+ *  - The reset link points at the frontend route (`/password/reset/:token`),
+ *    not at this API — the token is only useful once someone can paste a new
+ *    password next to it, and that page lives in the React app.
+ */
+
+// forgot password => POST /api/v1/auth/password/forgot
+export const forgotPassword = async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const user = await User.findOne({ email });
+
+  const genericResponse = {
+    status: 'success',
+    message: 'If that email has an account, a reset link is on its way. Check your inbox and your spam folder.',
+  };
+
+  if (!user) {
+    return res.status(StatusCodes.OK).json(genericResponse);
+  }
+
+  const resetToken = user.getResetPasswordToken();
+  await user.save({ validateBeforeSave: false });
+
+  const frontendUrl = process.env.PROD_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:5012';
+  const resetUrl = `${frontendUrl}/password/reset/${resetToken}`;
+
+  const result = await sendTemplate(user.email, passwordReset({ user, resetUrl }));
+
+  if (result.delivered) {
+    return res.status(StatusCodes.OK).json(genericResponse);
+  }
+
+  // Reset is the one flow with nothing to fall back on — the account is
+  // locked out and the link is the entire remedy. Outside production it goes
+  // to the server log and back in the response so the flow stays walkable
+  // with no mail server configured at all. Never in production, where a
+  // failed send has to stay a failure rather than handing a working reset
+  // link to whoever asked for it.
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`Email not sent (${result.reason}). Password reset link: ${resetUrl}`);
+    return res.status(StatusCodes.OK).json({
+      ...genericResponse,
+      devResetUrl: resetUrl,
+      devNote: mailConfigured()
+        ? `The mail server rejected the message (${result.reason}), so the link is returned here instead.`
+        : 'No mail server is configured, so the link is returned here instead of emailed.',
+    });
+  }
+
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save({ validateBeforeSave: false });
+  throw new InternalServerError('Could not send the reset email. Please try again later.');
+};
+
+// reset password => PATCH /api/v1/auth/password/reset/:token
+export const resetPassword = async (req, res) => {
+  // The token in the link is the plain one; only its hash is stored.
+  const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+
+  const user = await User.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  }).select('+password');
+
+  if (!user) {
+    throw new BadRequestError('That reset link is invalid or has expired. Please request a new one.');
+  }
+
+  const { password, confirmPassword } = req.body;
+  if (!password) throw new BadRequestError('Please choose a new password');
+  if (password !== confirmPassword) throw new BadRequestError('Passwords do not match');
+
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  // Signs them straight in — they've just proved control of the address.
   sendAuth(res, user);
 };
 

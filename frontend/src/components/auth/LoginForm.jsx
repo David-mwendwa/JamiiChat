@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Avatar from '../ui/Avatar.jsx';
 import Icon from '../ui/Icon.jsx';
 import Spinner from '../ui/Spinner.jsx';
@@ -133,9 +134,14 @@ const LoginForm = ({ onSuccess }) => {
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-1.5 block text-sm font-semibold">
-            Password
-          </label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="password" className="block text-sm font-semibold">
+              Password
+            </label>
+            <Link to="/password/forgot" className="text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400">
+              Forgot password?
+            </Link>
+          </div>
           <input
             id="password"
             type="password"

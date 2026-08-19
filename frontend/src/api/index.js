@@ -8,6 +8,8 @@ export const authApi = {
   updatePassword: (payload) => apiClient.patch('/auth/password', payload),
   handleAvailable: (handle) => apiClient.get('/auth/handle-available', { params: { handle } }),
   testAccounts: () => apiClient.get('/auth/test-accounts'),
+  forgotPassword: (email) => apiClient.post('/auth/password/forgot', { email }),
+  resetPassword: (token, payload) => apiClient.patch(`/auth/password/reset/${token}`, payload),
 };
 
 export const feedApi = {

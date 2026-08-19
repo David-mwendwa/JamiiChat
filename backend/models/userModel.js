@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import validator from 'validator';
 import { isReservedHandle } from '../utils/reservedHandles.js';
 
@@ -64,6 +65,8 @@ const userSchema = new mongoose.Schema(
     },
     lastSeenAt: { type: Date, default: Date.now },
     passwordChangedAt: Date,
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpire: { type: Date, select: false },
   },
   {
     timestamps: true,
@@ -91,6 +94,16 @@ userSchema.methods.matchesPassword = function (candidate) {
 userSchema.methods.passwordChangedAfter = function (tokenIssuedAt) {
   if (!this.passwordChangedAt) return false;
   return Math.floor(this.passwordChangedAt.getTime() / 1000) > tokenIssuedAt;
+};
+
+// The token mailed to the user is the plain, random one; only its hash is
+// stored, the same split a session token uses, so a leaked database dump
+// can't be turned into a working reset link.
+userSchema.methods.getResetPasswordToken = function () {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+  this.resetPasswordExpire = Date.now() + 30 * 60 * 1000;
+  return resetToken;
 };
 
 // The shape every endpoint returns for a user. Keeping it here means no

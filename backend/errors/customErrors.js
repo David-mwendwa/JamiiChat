@@ -46,3 +46,9 @@ export class TooManyRequestsError extends CustomAPIError {
     super(message, StatusCodes.TOO_MANY_REQUESTS);
   }
 }
+
+export class InternalServerError extends CustomAPIError {
+  constructor(message) {
+    super(message, StatusCodes.INTERNAL_SERVER_ERROR);
+  }
+}

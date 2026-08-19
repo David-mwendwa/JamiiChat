@@ -5,6 +5,8 @@ import RequireAuth from './components/layout/RequireAuth.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import ExplorePage from './pages/ExplorePage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
@@ -39,6 +41,8 @@ const App = () => {
   <Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
+    <Route path="/password/forgot" element={<ForgotPasswordPage />} />
+    <Route path="/password/reset/:token" element={<ResetPasswordPage />} />
 
     {/* Signed out, "/" is a full-width landing page that sits outside the app
         shell — rendering it inside the 620px feed column squeezed the hero and

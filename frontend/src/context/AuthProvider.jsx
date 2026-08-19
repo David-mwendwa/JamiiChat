@@ -87,6 +87,17 @@ export const AuthProvider = ({ children }) => {
     [adopt]
   );
 
+  const resetPassword = useCallback(
+    async (token, payload) => {
+      const { data } = await authApi.resetPassword(token, payload);
+      // Signs the token holder straight in — they just proved control of the
+      // account by opening the emailed link.
+      adopt(data);
+      return data.user;
+    },
+    [adopt]
+  );
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -109,8 +120,8 @@ export const AuthProvider = ({ children }) => {
   }, [navigate]);
 
   const value = useMemo(
-    () => ({ user, token, checking, login, register, logout, setUser }),
-    [user, token, checking, login, register, logout]
+    () => ({ user, token, checking, login, register, resetPassword, logout, setUser }),
+    [user, token, checking, login, register, resetPassword, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

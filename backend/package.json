@@ -34,6 +34,7 @@
     "mongoose": "^8.9.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
+    "nodemailer": "^9.0.5",
     "sharp": "^0.33.5",
     "socket.io": "^4.8.1",
     "validator": "^13.12.0",

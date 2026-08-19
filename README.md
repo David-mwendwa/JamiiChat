@@ -27,13 +27,31 @@ Demo sign-ins (the sign-in page has fill buttons for the first two):
 
 ## What is built
 
-Auth and sessions, profiles with handles and avatars, a follow graph with
-private accounts and follow requests, posts with images, reposts and quotes,
-threaded replies, likes, bookmarks, home and explore feeds, hashtags, mentions,
-search, live notifications, live direct messages with text, images and
-recorded voice notes, one-to-one voice and video calls over WebRTC, message
-editing (time-boxed) and two distinct kinds of delete, block and mute,
-reporting with an admin moderation queue, and dark mode.
+Auth and sessions with email-based password reset, profiles with handles and
+avatars, a follow graph with private accounts and follow requests, posts with
+images, reposts and quotes, threaded replies, likes, bookmarks, home and
+explore feeds, hashtags, mentions, search, live notifications, live direct
+messages with text, images and recorded voice notes, one-to-one voice and
+video calls over WebRTC, message editing (time-boxed) and two distinct kinds
+of delete, block and mute, reporting with an admin moderation queue, and dark
+mode.
+
+## Password reset
+
+`POST /auth/password/forgot` and `PATCH /auth/password/reset/:token` follow
+the same pattern as BazaarKE's: the response is identical whether or not the
+email has an account, so the form can't be used to test which addresses are
+registered; the emailed link points at the frontend route
+(`/password/reset/:token`), not the API; and only the SHA-256 hash of the
+reset token is stored, so a database dump alone can't produce a working link.
+The link expires after 30 minutes.
+
+Email goes through `utils/mailer.js` — a deliverable address is sent for real
+via `SMTP_*`, and anything else (the `@jamii.app` seed accounts, reserved test
+domains) is routed to a Mailtrap sandbox inbox instead, so testing the flow
+against a seeded account never risks a bounce against a real mail server.
+Outside production, if no mail server is configured at all, the reset link is
+returned directly in the API response instead of silently vanishing.
 
 ## Deleting a message, and deleting a chat
 
