@@ -27,9 +27,8 @@ services:
       # Render injects PORT itself; server.js reads it.
 
       # --- Database ---
-      # An Atlas connection string. No cluster is provisioned yet — create one,
-      # paste its URI here, and run `npm run seed` against it once. Local dev
-      # keeps using the workspace Docker Mongo.
+      # An Atlas connection string. Local dev keeps using the workspace Docker
+      # Mongo.
       - key: DATABASE_URL
         sync: false
 
@@ -73,8 +72,18 @@ services:
       - key: MAILTRAP_PASSWORD
         sync: false
 
-# Uploaded avatars, post images and chat attachments are written to
-# backend/public/media on disk.
-# Render's filesystem is ephemeral, so anything uploaded in production is lost
-# on the next deploy. The seed artwork survives because it is committed to the
-# repo. Moving uploads to Cloudinary is the fix; it is not done yet.
+      # --- Media storage ---
+      # Avatars, covers, post images and voice notes. See
+      # backend/middleware/upload.js — uploads go to Cloudinary when this is
+      # fully set, and fall back to backend/public/media on local disk
+      # otherwise. Render's filesystem is ephemeral, so anything written to
+      # disk in production is lost on the next deploy; the seed artwork
+      # survives regardless because it is committed to the repo.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: jamiichat

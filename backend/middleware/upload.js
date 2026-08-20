@@ -5,9 +5,11 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import sharp from 'sharp';
 import { BadRequestError } from '../errors/customErrors.js';
+import { uploadBuffer, removeFromCloudinary, isCloudinaryConfigured } from '../utils/cloudinary.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEDIA_DIR = path.join(__dirname, '..', 'public', 'media');
+const CLOUDINARY_FOLDER = process.env.CLOUDINARY_FOLDER || 'jamiichat';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -73,6 +75,20 @@ export const uploadMessageMedia = messageMediaUpload;
 export const saveAudio = async (file) => {
   const ext = AUDIO_EXTENSION[file.mimetype];
   const name = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+
+  if (isCloudinaryConfigured()) {
+    // Cloudinary files audio under `resource_type: 'video'` — there is no
+    // separate audio type. `public_id` carries the same name local storage
+    // would have used, purely so the two paths are recognisable as the same
+    // asset in logs/dashboards, not because anything parses it back.
+    const result = await uploadBuffer(file.buffer, {
+      folder: `${CLOUDINARY_FOLDER}/audio`,
+      public_id: name.replace(/\.[^.]+$/, ''),
+      resource_type: 'video',
+    });
+    return result.secure_url;
+  }
+
   await fs.mkdir(MEDIA_DIR, { recursive: true });
   await fs.writeFile(path.join(MEDIA_DIR, name), file.buffer);
   return `/media/${name}`;
@@ -91,6 +107,13 @@ const PRESETS = {
 // client-supplied filename — a file called `avatar.png` carrying something else
 // entirely must not end up served as a png. Re-encoding also drops EXIF, which
 // removes the GPS coordinates phones attach to photos.
+//
+// Cloudinary is used when it's configured and local disk otherwise, so the
+// app keeps working out of the box in dev but doesn't need any code changes
+// to go live — this is the fallback storeImage() uses in BazaarKE. Local disk
+// is fine for dev; on an ephemeral host (Render, Fly, a container) anything
+// written here vanishes on the next deploy, which is exactly when you'd add
+// the Cloudinary credentials.
 export const processImage = async (buffer, preset = 'post') => {
   const { width, height, fit } = PRESETS[preset] ?? PRESETS.post;
 
@@ -105,6 +128,16 @@ export const processImage = async (buffer, preset = 'post') => {
     .toBuffer({ resolveWithObject: true });
 
   const name = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.webp`;
+
+  if (isCloudinaryConfigured()) {
+    const result = await uploadBuffer(output.data, {
+      folder: `${CLOUDINARY_FOLDER}/${preset}s`,
+      public_id: name.replace(/\.[^.]+$/, ''),
+      resource_type: 'image',
+    });
+    return { url: result.secure_url, width: output.info.width, height: output.info.height };
+  }
+
   await fs.mkdir(MEDIA_DIR, { recursive: true });
   await fs.writeFile(path.join(MEDIA_DIR, name), output.data);
 
@@ -113,4 +146,35 @@ export const processImage = async (buffer, preset = 'post') => {
     width: output.info.width,
     height: output.info.height,
   };
+};
+
+// Best-effort cleanup of a *replaced* asset (a new avatar/cover overwriting an
+// old one). Never throws — failing to delete the old file is not a reason to
+// fail a request that already saved the new one. Two things are deliberately
+// left alone: seed artwork (`/media/seed/…`, committed to the repo and shared
+// by many accounts) and anything that isn't recognisably one of our own
+// upload URLs, since a stored value could in principle be hand-edited.
+export const deleteStoredFile = async (url) => {
+  if (!url) return;
+  try {
+    if (url.startsWith('/media/')) {
+      if (url.startsWith('/media/seed/')) return;
+      const target = path.join(MEDIA_DIR, url.slice('/media/'.length));
+      if (!target.startsWith(MEDIA_DIR + path.sep)) return;
+      await fs.unlink(target);
+      return;
+    }
+
+    // Cloudinary's `secure_url` is always `.../<image|video>/upload/v<n>/<public_id>.<ext>`
+    // for an asset uploaded the way `uploadBuffer` above does it — no
+    // transformations in the URL to account for.
+    const match = /^https?:\/\/res\.cloudinary\.com\/[^/]+\/(image|video)\/upload\/v\d+\/(.+)\.[a-zA-Z0-9]+$/.exec(
+      url
+    );
+    if (!match) return;
+    const [, resourceType, publicId] = match;
+    await removeFromCloudinary(publicId, { resource_type: resourceType });
+  } catch {
+    /* the asset is already gone, unreachable, or not ours to delete */
+  }
 };

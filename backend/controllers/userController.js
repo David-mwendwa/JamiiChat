@@ -7,7 +7,7 @@ import Mute from '../models/muteModel.js';
 import { NotFoundError, BadRequestError, UnauthorizedError } from '../errors/customErrors.js';
 import { followState, followStates, canViewAuthor, isBlockedBetween, viewerScope } from '../services/visibility.js';
 import { notify, removeNotification } from '../services/notify.js';
-import { processImage, uploadSingle } from '../middleware/upload.js';
+import { processImage, uploadSingle, deleteStoredFile } from '../middleware/upload.js';
 import { clampLimit, paginate, cursorFilter, decodeCursor } from '../utils/cursor.js';
 import { authorFeed } from '../services/feed.js';
 import { isOnline } from '../socket/emit.js';
@@ -101,7 +101,9 @@ export const uploadAvatar = [
     const kind = req.params.kind === 'cover' ? 'cover' : 'avatar';
     const { url } = await processImage(req.file.buffer, kind);
 
+    const previous = req.user[kind];
     const user = await User.findByIdAndUpdate(req.user._id, { [kind]: url }, { new: true });
+    if (previous && previous !== url) deleteStoredFile(previous);
     res.status(StatusCodes.OK).json({ status: 'success', user: user.toPrivate() });
   },
 ];
@@ -109,12 +111,13 @@ export const uploadAvatar = [
 // A blank `avatar`/`cover` isn't a missing image — Avatar.jsx (and the cover
 // slot) already render an initials/gradient placeholder for an empty string,
 // same as a brand-new account that never uploaded one. This exists so an
-// uploaded photo that has stopped resolving (the file behind an old path is
-// gone — Render's disk does not survive a redeploy) has a way back to that
+// uploaded photo that has stopped resolving has a way back to that
 // placeholder instead of sitting as a permanently broken `<img>`.
 export const removeImage = async (req, res) => {
   const kind = req.params.kind === 'cover' ? 'cover' : 'avatar';
+  const previous = req.user[kind];
   const user = await User.findByIdAndUpdate(req.user._id, { [kind]: '' }, { new: true });
+  if (previous) deleteStoredFile(previous);
   res.status(StatusCodes.OK).json({ status: 'success', user: user.toPrivate() });
 };
 
