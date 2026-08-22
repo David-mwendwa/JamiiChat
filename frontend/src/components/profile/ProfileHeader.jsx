@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Avatar from '../ui/Avatar.jsx';
 import Icon from '../ui/Icon.jsx';
@@ -15,12 +15,21 @@ const ProfileHeader = ({ profile, onUpdate }) => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const { onlineUsers } = useSocket();
+  const { onlineUsers, markOnline } = useSocket();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useClickOutside(() => setMenuOpen(false));
 
   const isSelf = profile.relationship === 'self';
-  const online = onlineUsers.has(String(profile.id)) || profile.online;
+  const online = onlineUsers.has(String(profile.id));
+
+  // A one-time seed from the server's own isOnline() check at fetch time —
+  // ORing that flag into `online` on every render instead (the bug this
+  // replaced) meant the badge stayed lit long after the person disconnected,
+  // since a value that starts true and is never re-checked can only ever
+  // stay true. Live presence events take over the instant this seed lands.
+  useEffect(() => {
+    if (profile.online) markOnline([profile.id]);
+  }, [profile.id, profile.online, markOnline]);
 
   const message = async () => {
     try {

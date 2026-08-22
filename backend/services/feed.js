@@ -50,25 +50,46 @@ const serializePost = (post) => {
 
 const hydrate = async (posts, viewerId) => {
   if (posts.length === 0) return [];
-  const ids = posts.map((p) => p._id);
 
-  // Two indexed queries answer "did I like this" and "did I save this" for the
-  // whole page, rather than one pair per post.
-  const [liked, saved] = viewerId
+  // A plain repost renders as its target (`repostOf`) with a byline — see
+  // PostCard's `isPlainRepost` — and the action bar acts on that target, not
+  // the wrapper. So "did I like/save/repost this" has to be answered for the
+  // target's id too, not only the wrapper's, or every one of those states
+  // reads as false on any post reached by way of a repost.
+  const ids = posts.map((p) => p._id);
+  const repostOfIds = posts.filter((p) => p.repostOf).map((p) => p.repostOf._id);
+  const allIds = [...new Set([...ids, ...repostOfIds].map(String))];
+
+  const [liked, saved, reposted] = viewerId
     ? await Promise.all([
-        Like.find({ user: viewerId, post: { $in: ids } }).select('post').lean(),
-        Bookmark.find({ user: viewerId, post: { $in: ids } }).select('post').lean(),
+        Like.find({ user: viewerId, post: { $in: allIds } }).select('post').lean(),
+        Bookmark.find({ user: viewerId, post: { $in: allIds } }).select('post').lean(),
+        Post.find({ author: viewerId, repostOf: { $in: allIds }, kind: 'repost', deletedAt: null })
+          .select('repostOf')
+          .lean(),
       ])
-    : [[], []];
+    : [[], [], []];
 
   const likedSet = new Set(liked.map((l) => String(l.post)));
   const savedSet = new Set(saved.map((b) => String(b.post)));
+  const repostedSet = new Set(reposted.map((r) => String(r.repostOf)));
 
-  return posts.map((post) => ({
-    ...serializePost(post),
-    likedByViewer: likedSet.has(String(post._id)),
-    bookmarkedByViewer: savedSet.has(String(post._id)),
-  }));
+  const flagsFor = (id) => ({
+    likedByViewer: likedSet.has(String(id)),
+    bookmarkedByViewer: savedSet.has(String(id)),
+    repostedByViewer: repostedSet.has(String(id)),
+  });
+
+  return posts.map((post) => {
+    const serialized = serializePost(post);
+    return {
+      ...serialized,
+      ...flagsFor(post._id),
+      repostOf: serialized.repostOf
+        ? { ...serialized.repostOf, ...flagsFor(post.repostOf._id) }
+        : null,
+    };
+  });
 };
 
 // `options: { lean: true }` on each populate spec matters beyond the queries

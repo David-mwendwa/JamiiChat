@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthProvider.jsx';
 
@@ -72,11 +72,29 @@ export const SocketProvider = ({ children }) => {
     };
   }, [token, user]);
 
+  // Seeds the live presence set from a one-off REST snapshot (a conversation
+  // list's `participant.online`, computed server-side at fetch time) rather
+  // than trusting that snapshot forever — a caller that ORs a stale REST flag
+  // into every render instead of seeding it once here will show someone as
+  // online long after they disconnect, since nothing ever re-evaluates a
+  // value that was only ever true. `presence:online`/`presence:offline`
+  // events are what keep it correct after this initial merge; anyone absent
+  // from both the seed and the live set is presumed offline, not the reverse.
+  const markOnline = useCallback((ids) => {
+    if (!ids || ids.length === 0) return;
+    setOnlineUsers((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(String(id));
+      return next;
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       socket: socketRef.current,
       status,
       onlineUsers,
+      markOnline,
       // Subscribing through the provider rather than reaching for the socket
       // directly means a component mounted before the connection settles still
       // gets its listener attached.
@@ -88,7 +106,7 @@ export const SocketProvider = ({ children }) => {
       },
       emit: (...args) => socketRef.current?.emit(...args),
     }),
-    [status, onlineUsers]
+    [status, onlineUsers, markOnline]
   );
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

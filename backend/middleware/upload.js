@@ -42,9 +42,19 @@ const AUDIO_EXTENSION = {
   'audio/wav': 'wav',
 };
 
+const ALLOWED_VIDEO = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
+const VIDEO_EXTENSION = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+};
+
 const messageMediaUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  // Shared across the image/audio/video fields on this instance — multer has
+  // no per-field limit, and a video clip needs more headroom than a photo or
+  // a voice note, so the whole instance uses the larger figure.
+  limits: { fileSize: 25 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'image') {
       if (!ALLOWED.has(file.mimetype))
@@ -56,11 +66,17 @@ const messageMediaUpload = multer({
         return cb(new BadRequestError('That audio format is not supported'));
       return cb(null, true);
     }
+    if (file.fieldname === 'video') {
+      if (!ALLOWED_VIDEO.has(file.mimetype))
+        return cb(new BadRequestError('Videos only — MP4, WebM or MOV'));
+      return cb(null, true);
+    }
     cb(new BadRequestError('Unexpected upload field'));
   },
 }).fields([
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 },
+  { name: 'video', maxCount: 1 },
 ]);
 
 export const uploadMessageMedia = messageMediaUpload;
@@ -83,6 +99,27 @@ export const saveAudio = async (file) => {
     // asset in logs/dashboards, not because anything parses it back.
     const result = await uploadBuffer(file.buffer, {
       folder: `${CLOUDINARY_FOLDER}/audio`,
+      public_id: name.replace(/\.[^.]+$/, ''),
+      resource_type: 'video',
+    });
+    return result.secure_url;
+  }
+
+  await fs.mkdir(MEDIA_DIR, { recursive: true });
+  await fs.writeFile(path.join(MEDIA_DIR, name), file.buffer);
+  return `/media/${name}`;
+};
+
+// Stored as recorded, same as a voice note — there is no transcoding pipeline
+// here (sharp only decodes images), so a chat video keeps whatever the sender's
+// device produced rather than being re-encoded to a common format/bitrate.
+export const saveVideo = async (file) => {
+  const ext = VIDEO_EXTENSION[file.mimetype];
+  const name = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
+
+  if (isCloudinaryConfigured()) {
+    const result = await uploadBuffer(file.buffer, {
+      folder: `${CLOUDINARY_FOLDER}/videos`,
       public_id: name.replace(/\.[^.]+$/, ''),
       resource_type: 'video',
     });

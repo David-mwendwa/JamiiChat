@@ -59,7 +59,7 @@ export const messageApi = {
   open: (handle) => apiClient.post(`/conversations/with/${handle}`),
   hideConversation: (id) => apiClient.post(`/conversations/${id}/hide`),
   messages: (id, params) => apiClient.get(`/conversations/${id}/messages`, { params }),
-  send: (id, text) => apiClient.post(`/conversations/${id}/messages`, { text }),
+  send: (id, text, replyTo) => apiClient.post(`/conversations/${id}/messages`, { text, replyTo }),
   // A separate call rather than branching inside `send`: multipart and JSON
   // bodies are different enough shapes (FormData vs. a plain object) that
   // folding them into one function just moves the branch to every caller.

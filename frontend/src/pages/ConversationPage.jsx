@@ -26,6 +26,63 @@ const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const canEdit = (message) =>
   Date.now() - new Date(message.createdAt).getTime() <= EDIT_WINDOW_MS;
 
+// What a quoted reply shows for the message it points at — text takes
+// priority, then the kind of attachment, mirroring the conversation list's
+// own `previewFor` on the backend so the two never describe the same message
+// differently.
+const replySnippet = (target) => {
+  if (!target || target.deletedAt) return 'This message was deleted';
+  if (target.text) return target.text;
+  if (target.mediaDuration != null) return 'Voice message';
+  if (target.mediaType === 'video') return 'Video';
+  return target.media ? 'Photo' : '';
+};
+
+// The quoted strip shown inside a bubble that replies to another message —
+// and, unstyled, reused above the composer while a reply is queued up. Only
+// the in-bubble use gets `onClick` — jumping to the original message means
+// nothing for the composer's own preview of a reply not sent yet.
+//
+// A real `<button>` here would be invalid HTML the moment the bubble around
+// it is one too (a plain text message renders as a `<button>` — see
+// `BubbleTag`), so this is a div standing in for one, same as the audio/video
+// player treatment further down: role, tabIndex, its own key handler, and a
+// click that stops before it reaches the bubble's own "toggle timestamp"
+// handler.
+const ReplyQuote = ({ target, tone = 'bubble', onClick }) => (
+  <div
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onClick={
+      onClick
+        ? (e) => {
+            e.stopPropagation();
+            onClick();
+          }
+        : undefined
+    }
+    onKeyDown={
+      onClick
+        ? (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            onClick();
+          }
+        : undefined
+    }
+    className={cn(
+      'mb-1.5 rounded-lg border-l-2 px-2 py-1 text-left text-[0.8125rem]',
+      onClick && 'cursor-pointer transition hover:brightness-95',
+      tone === 'bubble' ? 'border-current/40 bg-black/10' : 'border-primary-500 bg-sunken'
+    )}>
+    <p className={cn('font-semibold', tone !== 'bubble' && 'text-primary-600 dark:text-primary-400')}>
+      {target?.sender?.displayName ?? 'Someone'}
+    </p>
+    <p className="line-clamp-1 opacity-80">{replySnippet(target)}</p>
+  </div>
+);
+
 // Three states, not two. Shape carries delivery, colour carries reading:
 //
 //   ✓   muted   sent      — the server has it, their device does not
@@ -84,6 +141,110 @@ const SelectCheckbox = ({ checked, onClick }) => (
   </button>
 );
 
+// One row of the message action sheet — icon, label, tap to run and close.
+// `tone="danger"` is the only variant, reserved for Delete: everything else
+// in the sheet is routine enough not to need its own colour.
+const ActionRow = ({ icon, label, onClick, tone }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[0.9375rem] font-medium transition hover:bg-sunken',
+      tone === 'danger' ? 'text-rose-600 dark:text-rose-400' : 'text-ink'
+    )}>
+    <Icon name={icon} className="h-[18px] w-[18px]" />
+    {label}
+  </button>
+);
+
+// A rightward drag on any bubble — yours or theirs — reveals a reply icon
+// and springs back the instant it is released, the same gesture WhatsApp,
+// Instagram and TikTok all share for "reply to this one." It never reveals a
+// persistent action the way MessagesPage's own SwipeableRow does (that one
+// stays open for a tap on Delete); this one fires once, on release, and
+// always snaps back to zero — there is nothing to leave open.
+const REPLY_TRIGGER = 56;
+const REPLY_MAX = 80;
+// Below this many pixels of horizontal movement, a gesture still counts as a
+// tap. Without the threshold, `setPointerCapture` would be the obvious way to
+// keep tracking the pointer past the row's own edge, but it retargets the
+// resulting `click` to the capturing element — which silently breaks every
+// tap the bubble itself needs (opening the timestamp, playing an attachment).
+// Tracking via `window` listeners, armed only once real movement is seen,
+// sidesteps that: a tap that never crosses the threshold never touches
+// pointer capture at all, and reaches the bubble exactly as if this wrapper
+// were not here.
+const SWIPE_ARM_THRESHOLD = 6;
+
+const SwipeToReply = ({ onReply, children }) => {
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const armed = useRef(false);
+  const triggered = useRef(false);
+  const onWindowMove = useRef(null);
+  const onWindowUp = useRef(null);
+
+  const detach = () => {
+    window.removeEventListener('pointermove', onWindowMove.current);
+    window.removeEventListener('pointerup', onWindowUp.current);
+    window.removeEventListener('pointercancel', onWindowUp.current);
+  };
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragStartX.current = e.clientX;
+    armed.current = false;
+    triggered.current = false;
+
+    onWindowMove.current = (moveEvent) => {
+      const delta = moveEvent.clientX - dragStartX.current;
+      if (!armed.current) {
+        if (Math.abs(delta) < SWIPE_ARM_THRESHOLD) return;
+        armed.current = true;
+      }
+      // Leftward movement reveals nothing — reply is the only action here, so
+      // there is nothing on that side to uncover.
+      const clamped = Math.max(0, Math.min(delta, REPLY_MAX));
+      setDragging(true);
+      setOffset(clamped);
+      if (!triggered.current && clamped >= REPLY_TRIGGER) {
+        triggered.current = true;
+        navigator.vibrate?.(10);
+      }
+    };
+
+    onWindowUp.current = () => {
+      detach();
+      setDragging(false);
+      setOffset(0);
+      if (triggered.current) onReply();
+    };
+
+    window.addEventListener('pointermove', onWindowMove.current);
+    window.addEventListener('pointerup', onWindowUp.current);
+    window.addEventListener('pointercancel', onWindowUp.current);
+  };
+
+  return (
+    <div className="relative flex-1" onPointerDown={onPointerDown} style={{ touchAction: 'pan-y' }}>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-primary-500"
+        style={{ opacity: Math.min(offset / REPLY_TRIGGER, 1) }}>
+        <Icon name="reply" className="h-5 w-5" />
+      </div>
+      <div
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: dragging ? 'none' : 'transform 200ms ease-out',
+        }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 const ConversationPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -96,7 +257,30 @@ const ConversationPage = () => {
   const [messages, setMessages] = useState([]);
   const [partner, setPartner] = useState(null);
   const [text, setText] = useState('');
-  const [image, setImage] = useState(null);
+  const [attachment, setAttachment] = useState(null);
+  // The message a swipe-to-reply gesture (or the reply menu item) has queued
+  // up — shown as a quoted strip above the composer, cleared on send or by
+  // its own dismiss button.
+  const [replyingTo, setReplyingTo] = useState(null);
+  // The message a reply-quote was just clicked into — briefly styled so the
+  // jump reads as "here it is," not just an unexplained scroll.
+  const [highlightedId, setHighlightedId] = useState(null);
+  const highlightTimer = useRef(null);
+
+  const scrollToMessage = (targetId) => {
+    const el = targetId && document.getElementById(`msg-${targetId}`);
+    // The target may not be loaded yet — older messages page in on scroll —
+    // so there is nothing to jump to until that catches up. Silent no-op
+    // rather than a toast for what is, from here, an edge case.
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    clearTimeout(highlightTimer.current);
+    setHighlightedId(targetId);
+    highlightTimer.current = setTimeout(() => setHighlightedId(null), 1600);
+  };
+
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
+
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
@@ -160,6 +344,14 @@ const ConversationPage = () => {
   const exitSelectMode = () => setSelected(null);
 
   const selectedMessages = selected ? messages.filter((m) => selected.has(m._id)) : [];
+  // The message the action sheet (`openDetail`, an id) is currently open
+  // for — looked up fresh on every render so an edit or a delivered/read
+  // update that lands while the sheet is open is reflected immediately.
+  // Excludes a deleted message: `openDetail` doing double duty as that
+  // tombstone's own inline reveal-Select toggle must not also pop this sheet.
+  const detailMessage = openDetail
+    ? messages.find((m) => m._id === openDetail && !m.deletedAt)
+    : null;
   const canDeleteForEveryone = (message) =>
     message.sender?._id === user?.id && !message.deletedAt && canEdit(message);
   // All-or-nothing, not per message: "delete for everyone" is only on offer
@@ -397,40 +589,45 @@ const ConversationPage = () => {
     }
   };
 
-  const pickImage = (file) => {
-    if (!file || !file.type.startsWith('image/')) return;
-    if (image) URL.revokeObjectURL(image.preview);
-    setImage({ file, preview: URL.createObjectURL(file) });
+  const pickAttachment = (file) => {
+    if (!file) return;
+    const kind = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+    if (!kind) return;
+    if (attachment) URL.revokeObjectURL(attachment.preview);
+    setAttachment({ file, kind, preview: URL.createObjectURL(file) });
   };
 
-  const clearImage = () => {
-    if (image) URL.revokeObjectURL(image.preview);
-    setImage(null);
+  const clearAttachment = () => {
+    if (attachment) URL.revokeObjectURL(attachment.preview);
+    setAttachment(null);
   };
 
   const send = async (event) => {
     event.preventDefault();
     const body = text.trim();
-    if ((!body && !image) || sending) return;
+    if ((!body && !attachment) || sending) return;
 
     setSending(true);
     setText('');
-    const attachedImage = image;
-    clearImage();
+    const attachedFile = attachment;
+    const repliedTo = replyingTo;
+    clearAttachment();
+    setReplyingTo(null);
     emit('typing:stop', { conversationId: id });
 
     try {
-      const { data } = attachedImage
+      const { data } = attachedFile
         ? await messageApi.sendWithMedia(
             id,
             (() => {
               const form = new FormData();
               form.append('text', body);
-              form.append('image', attachedImage.file);
+              form.append(attachedFile.kind, attachedFile.file);
+              if (repliedTo) form.append('replyTo', repliedTo._id);
               return form;
             })()
           )
-        : await messageApi.send(id, body);
+        : await messageApi.send(id, body, repliedTo?._id);
 
       // The socket echo is filtered by id, so a sender who is also in the room
       // does not see their own message twice.
@@ -442,7 +639,8 @@ const ConversationPage = () => {
       playSentPop();
     } catch (err) {
       setText(body);
-      if (attachedImage) setImage(attachedImage);
+      if (attachedFile) setAttachment(attachedFile);
+      if (repliedTo) setReplyingTo(repliedTo);
       toast.error(errorMessage(err, 'That message did not send'));
     } finally {
       setSending(false);
@@ -613,7 +811,12 @@ const ConversationPage = () => {
               const isEditing = editing?.id === message._id;
               const showDetail = openDetail === message._id;
               const hasAudio = message.mediaDuration != null;
-              const BubbleTag = hasAudio ? 'div' : 'button';
+              const hasVideo = message.mediaType === 'video';
+              // A native <audio>/<video controls> player is itself interactive
+              // content, which HTML does not allow nesting inside a real
+              // <button> — see the comment further down where the player
+              // stops its own clicks from bubbling.
+              const BubbleTag = hasAudio || hasVideo ? 'div' : 'button';
 
               // A deleted message keeps its slot so the thread does not
               // silently reshuffle, and says plainly that something was there.
@@ -623,7 +826,7 @@ const ConversationPage = () => {
               // both sides.
               if (gone)
                 return (
-                  <li key={message._id} className="flex items-center gap-2">
+                  <li key={message._id} id={`msg-${message._id}`} className="flex items-center gap-2">
                     {selected && (
                       <SelectCheckbox
                         checked={selected.has(message._id)}
@@ -712,15 +915,8 @@ const ConversationPage = () => {
                   </li>
                 );
 
-              return (
-                <li key={message._id} className="flex items-center gap-2">
-                  {selected && (
-                    <SelectCheckbox
-                      checked={selected.has(message._id)}
-                      onClick={() => toggleSelected(message._id)}
-                    />
-                  )}
-                  <div className={cn('flex flex-1', mine ? 'justify-end' : 'justify-start')}>
+              const bubble = (
+                  <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
                   <div className={cn('max-w-[78%]', mine ? 'items-end' : 'items-start')}>
                     {/* A native <audio controls> player is itself interactive
                         content, which HTML does not allow nesting inside a
@@ -730,28 +926,24 @@ const ConversationPage = () => {
                         own clicks from bubbling to that handler so pressing
                         play does not also toggle the timestamp detail. */}
                     <BubbleTag
-                      type={hasAudio ? undefined : 'button'}
-                      role={hasAudio ? 'button' : undefined}
-                      tabIndex={hasAudio ? 0 : undefined}
+                      type={hasAudio || hasVideo ? undefined : 'button'}
+                      role={hasAudio || hasVideo ? 'button' : undefined}
+                      tabIndex={hasAudio || hasVideo ? 0 : undefined}
                       onClick={() =>
-                        selected
-                          ? toggleSelected(message._id)
-                          : setOpenDetail(showDetail ? null : message._id)
+                        selected ? toggleSelected(message._id) : setOpenDetail(message._id)
                       }
                       onKeyDown={
-                        hasAudio
+                        hasAudio || hasVideo
                           ? (e) => {
                               if (e.key !== 'Enter' && e.key !== ' ') return;
                               e.preventDefault();
-                              selected
-                                ? toggleSelected(message._id)
-                                : setOpenDetail(showDetail ? null : message._id);
+                              selected ? toggleSelected(message._id) : setOpenDetail(message._id);
                             }
                           : undefined
                       }
-                      aria-expanded={showDetail}
+                      aria-haspopup="dialog"
                       className={cn(
-                        'block w-full overflow-hidden rounded-2xl text-left',
+                        'block w-full overflow-hidden rounded-2xl text-left transition-shadow duration-500',
                         // The bubble scales from its own corner rather than its
                         // centre, so it reads as landing against the edge it is
                         // anchored to instead of ballooning out of the middle.
@@ -760,8 +952,21 @@ const ConversationPage = () => {
                         message.text || !message.media ? 'px-3.5 py-2' : 'p-1',
                         mine
                           ? 'rounded-br-md bg-primary-600 text-white'
-                          : 'rounded-bl-md bg-sunken'
+                          : 'rounded-bl-md bg-sunken',
+                        // A tap on a reply-quote jumps here and flashes this
+                        // ring so the jump reads as "here it is," not just an
+                        // unexplained scroll — it fades back out on its own via
+                        // the `transition-shadow` above once the timer clears
+                        // `highlightedId`, rather than needing a second class
+                        // swap to animate the exit.
+                        highlightedId === message._id && 'ring-2 ring-secondary-400 ring-offset-2 ring-offset-canvas'
                       )}>
+                      {message.replyTo && (
+                        <ReplyQuote
+                          target={message.replyTo}
+                          onClick={() => scrollToMessage(message.replyTo._id)}
+                        />
+                      )}
                       {hasAudio ? (
                         <div
                           onClick={(e) => e.stopPropagation()}
@@ -773,6 +978,19 @@ const ConversationPage = () => {
                             className="h-10 max-w-full"
                           />
                         </div>
+                      ) : hasVideo ? (
+                        message.media && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(message.text && 'mb-2')}>
+                            <video
+                              controls
+                              preload="metadata"
+                              src={mediaUrl(message.media)}
+                              className="max-h-72 w-full rounded-xl"
+                            />
+                          </div>
+                        )
                       ) : (
                         message.media && (
                           <img
@@ -809,52 +1027,27 @@ const ConversationPage = () => {
                         )}
                       </span>
                     </BubbleTag>
+                  </div>
+                  </div>
+              );
 
-                    {/* Always mounted so the grid-rows transition can play in both
-                        directions — conditionally rendering it would only ever
-                        pop it in and drop it instantly on close. */}
-                    <div
-                      className={cn(
-                        'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
-                        showDetail ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                      )}>
-                      <div className="overflow-hidden">
-                        <div
-                          className={cn(
-                            'mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[0.6875rem] text-muted',
-                            mine ? 'justify-end' : 'justify-start'
-                          )}>
-                          <span>{fullDate(message.createdAt)}</span>
-                          {message.editedAt && <span>· edited {relativeTime(message.editedAt)}</span>}
-                          {mine && canEdit(message) && (
-                            <button
-                              type="button"
-                              onClick={() => beginEdit(message)}
-                              className="font-semibold text-primary-600 hover:underline dark:text-primary-400">
-                              Edit
-                            </button>
-                          )}
-                          {mine && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDelete(message)}
-                              className="font-semibold text-rose-600 hover:underline dark:text-rose-400">
-                              Delete
-                            </button>
-                          )}
-                          {/* Available on either side's messages — "delete for
-                              me" only ever touches this account's own view. */}
-                          <button
-                            type="button"
-                            onClick={() => enterSelectMode(message._id)}
-                            className="font-semibold text-ink-soft hover:underline">
-                            Select
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  </div>
+              return (
+                <li key={message._id} id={`msg-${message._id}`} className="flex items-center gap-2">
+                  {selected && (
+                    <SelectCheckbox
+                      checked={selected.has(message._id)}
+                      onClick={() => toggleSelected(message._id)}
+                    />
+                  )}
+                  {/* Select mode already repurposes a tap for checking a row
+                      off — layering a swipe gesture on top of that too would
+                      mean the same drag means two different things depending
+                      on mode, so it is switched off entirely while selecting. */}
+                  {selected ? (
+                    <div className="flex-1">{bubble}</div>
+                  ) : (
+                    <SwipeToReply onReply={() => setReplyingTo(message)}>{bubble}</SwipeToReply>
+                  )}
                 </li>
               );
             })}
@@ -895,13 +1088,34 @@ const ConversationPage = () => {
         </div>
       ) : (
       <form onSubmit={send} className="border-t border-line p-2">
-        {image && (
-          <div className="relative mb-2 inline-block">
-            <img src={image.preview} alt="" className="h-20 w-20 rounded-xl object-cover" />
+        {replyingTo && (
+          <div className="mb-2 flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <ReplyQuote target={replyingTo} tone="composer" />
+            </div>
             <button
               type="button"
-              onClick={clearImage}
-              aria-label="Remove image"
+              onClick={() => setReplyingTo(null)}
+              aria-label="Cancel reply"
+              className="shrink-0 rounded-full p-1.5 text-muted transition hover:bg-line/60 hover:text-ink">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {attachment && (
+          <div className="relative mb-2 inline-block">
+            {attachment.kind === 'video' ? (
+              <video src={attachment.preview} muted className="h-20 w-20 rounded-xl object-cover" />
+            ) : (
+              <img src={attachment.preview} alt="" className="h-20 w-20 rounded-xl object-cover" />
+            )}
+            <button
+              type="button"
+              onClick={clearAttachment}
+              aria-label={attachment.kind === 'video' ? 'Remove video' : 'Remove image'}
               className="absolute -right-1.5 -top-1.5 rounded-full bg-ink p-1 text-canvas transition hover:opacity-80">
               <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
                 <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
@@ -913,10 +1127,10 @@ const ConversationPage = () => {
         <input
           ref={fileInput}
           type="file"
-          accept="image/*"
+          accept="image/*,video/mp4,video/webm,video/quicktime"
           hidden
           onChange={(e) => {
-            pickImage(e.target.files?.[0]);
+            pickAttachment(e.target.files?.[0]);
             e.target.value = '';
           }}
         />
@@ -964,17 +1178,17 @@ const ConversationPage = () => {
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                aria-label="Attach an image"
+                aria-label="Attach a photo or video"
                 className="inline-flex shrink-0 items-center justify-center rounded-full p-2 text-primary-600 transition hover:bg-primary-500/10 dark:text-primary-400">
                 <Icon name="image" className="h-[18px] w-[18px]" />
               </button>
 
               {/* Hidden below `sm` always — a phone's own keyboard already has
                   an emoji panel a thumb-tap away. From `sm` up it also steps
-                  aside once there is text or an image queued, freeing space
-                  for the send button without losing anything a
+                  aside once there is text or an attachment queued, freeing
+                  space for the send button without losing anything a
                   trackpad-and-keyboard visitor couldn't reach another way. */}
-              {!text && !image && (
+              {!text && !attachment && (
                 <div className="relative hidden shrink-0 sm:block">
                   <button
                     type="button"
@@ -1009,7 +1223,7 @@ const ConversationPage = () => {
               {/* The mic swaps in exactly where Send sits, and only Send is
                   ever there once there is something typed or attached — one
                   slot, one action, never both fighting for the same corner. */}
-              {text.trim() || image ? (
+              {text.trim() || attachment ? (
                 <button
                   type="submit"
                   disabled={sending}
@@ -1031,6 +1245,83 @@ const ConversationPage = () => {
         </div>
       </form>
       )}
+
+      {/* One tap on a bubble opens this instead of an inline row of links —
+          the same "tap for a sheet of actions" pattern WhatsApp/Telegram/IG
+          use, rather than a permanently-expanding strip under every message.
+          Forward, star and pin are deliberately not here: nothing on the
+          backend implements them yet, and a button that does nothing is
+          worse than one that isn't offered. */}
+      <Modal open={Boolean(detailMessage)} onClose={() => setOpenDetail(null)} title="Message">
+        {detailMessage && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 space-y-0.5 rounded-lg bg-sunken px-3 py-2.5 text-[0.8125rem] text-muted">
+              <p>Sent {fullDate(detailMessage.createdAt)}</p>
+              {detailMessage.editedAt && <p>Edited {fullDate(detailMessage.editedAt)}</p>}
+              {detailMessage.sender?._id === user?.id && (
+                <p>
+                  {detailMessage.readAt
+                    ? 'Read'
+                    : detailMessage.deliveredAt
+                      ? 'Delivered, not yet read'
+                      : 'Sent, not yet delivered'}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-0.5">
+              <ActionRow
+                icon="reply"
+                label="Reply"
+                onClick={() => {
+                  setReplyingTo(detailMessage);
+                  setOpenDetail(null);
+                }}
+              />
+              {detailMessage.text && (
+                <ActionRow
+                  icon="copy"
+                  label="Copy text"
+                  onClick={async () => {
+                    setOpenDetail(null);
+                    try {
+                      await navigator.clipboard.writeText(detailMessage.text);
+                      toast.success('Copied');
+                    } catch {
+                      toast.error('Could not copy that');
+                    }
+                  }}
+                />
+              )}
+              {detailMessage.sender?._id === user?.id && canEdit(detailMessage) && (
+                <ActionRow icon="pencil" label="Edit" onClick={() => beginEdit(detailMessage)} />
+              )}
+              <ActionRow
+                icon="checkCircle"
+                label="Select"
+                onClick={() => {
+                  enterSelectMode(detailMessage._id);
+                  setOpenDetail(null);
+                }}
+              />
+              {/* Mine-only, same as before this was a sheet — the other
+                  person's message can still be cleared from just your own
+                  view, but only through Select, never a direct single tap. */}
+              {detailMessage.sender?._id === user?.id && (
+                <ActionRow
+                  icon="trash"
+                  label="Delete"
+                  tone="danger"
+                  onClick={() => {
+                    setOpenDetail(null);
+                    setConfirmDelete(detailMessage);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={Boolean(confirmDelete)} onClose={() => setConfirmDelete(null)} title="Delete message?">
         {confirmDelete && canDeleteForEveryone(confirmDelete) ? (

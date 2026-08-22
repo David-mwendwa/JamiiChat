@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Avatar from '../components/ui/Avatar.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Logo from '../components/ui/Logo.jsx';
 import cn from '../lib/cn.js';
 
@@ -139,23 +140,32 @@ const LandingPage = () => (
       />
     </div>
 
-    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-16">
-      <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        <div className="animate-slide-up">
-          <Logo className="h-14 w-14" />
+    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center gap-10 px-6 py-10 lg:gap-12 lg:py-12">
+      {/* The hero and the chat mock share one row — a 3:2 split rather than an
+          even 1:1 one, because the mock's own card tops out at `max-w-sm`
+          (24rem): an even split on a 1152px container hands it a track far
+          wider than it will ever fill, which is what read as disproportionate.
+          A narrower, tailored track lets the card sit centred in space that
+          actually belongs to it instead of adrift in a mostly-empty half. */}
+      <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-16">
+        {/* Centred on mobile, left-aligned from `lg` up — stacked below the
+            hero, a left-flush block reads as misaligned against everything
+            else on a narrow screen centring by default. */}
+        <div className="animate-slide-up text-center lg:text-left">
+          <Logo className="mx-auto h-14 w-14 lg:mx-0" />
           <h1 className="mt-8 text-4xl leading-[1.05] sm:text-5xl lg:text-[3.75rem] lg:leading-[1.03]">
             Post. Follow.
             <br />
             <span className="text-primary-600 dark:text-primary-400">Talk.</span>
           </h1>
-          <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-ink-soft">
+          <p className="mx-auto mt-5 max-w-md text-[1.0625rem] leading-relaxed text-ink-soft lg:mx-0">
             JamiiChat is a place to say what you think and hear back about it — replies, direct
             messages and notifications that arrive the moment they happen.
           </p>
 
           {/* whitespace-nowrap: these labels must never break across two lines,
               which is what happened when the hero was rendered in a narrow column. */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <Link to="/register" className="btn-primary whitespace-nowrap px-6 py-2.5">
               Create an account
             </Link>
@@ -172,27 +182,38 @@ const LandingPage = () => (
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-8 lg:items-end">
+        <div className="flex justify-center lg:justify-end">
           <LiveMock />
-
-          <ul className="w-full max-w-sm space-y-3">
-            {[
-              ['Live conversations', 'Messages, typing indicators and read receipts arrive over an open connection, not a refresh.'],
-              ['A timeline you control', 'Follow who you want, mute what you do not, and block anyone — in both directions.'],
-              ['Replies that read as threads', 'Every reply keeps the conversation it came from, so a link is never a fragment.'],
-              ['Moderation that is a decision', 'Reports go to a person, and what they decide is recorded separately from what was reported.'],
-            ].map(([title, body], i) => (
-              <li
-                key={title}
-                className="animate-slide-up rounded-2xl border border-line p-5 opacity-0 [animation-fill-mode:forwards] dark:border-line"
-                style={{ animationDelay: `${150 + i * 90}ms` }}>
-                <h2 className="text-base">{title}</h2>
-                <p className="mt-1 text-sm text-muted">{body}</p>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
+
+      {/* A row of four, not a stacked list — the same four cards read as a
+          tall fifth screenful stacked at `space-y-3`, which is exactly what
+          forced a scroll on a page meant to fit in one view. Laid out side by
+          side from `sm` up, the whole page holds its height instead. */}
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        {[
+          // Each icon is the exact one that name already carries elsewhere in
+          // the app (NavRail's Messages/Home/Admin, PostActions' Reply) —
+          // reusing that vocabulary rather than picking a fresh glyph means a
+          // signed-in visitor recognises the icon again, not just the word.
+          ['mail', 'Live conversations', 'Messages, typing indicators and read receipts arrive over an open connection, not a refresh.'],
+          ['home', 'A timeline you control', 'Follow who you want, mute what you do not, and block anyone — in both directions.'],
+          ['reply', 'Replies that read as threads', 'Every reply keeps the conversation it came from, so a link is never a fragment.'],
+          ['shield', 'Moderation that is a decision', 'Reports go to a person, and what they decide is recorded separately from what was reported.'],
+        ].map(([icon, title, body], i) => (
+          <li
+            key={title}
+            className="animate-slide-up rounded-2xl border border-line p-4 opacity-0 [animation-fill-mode:forwards] dark:border-line"
+            style={{ animationDelay: `${150 + i * 90}ms` }}>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400">
+              <Icon name={icon} className="h-[18px] w-[18px]" strokeWidth={1.9} />
+            </span>
+            <h2 className="mt-3 text-base">{title}</h2>
+            <p className="mt-1 text-sm text-muted">{body}</p>
+          </li>
+        ))}
+      </ul>
     </div>
   </div>
 );

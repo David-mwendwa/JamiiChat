@@ -121,7 +121,7 @@ const SwipeableRow = ({ onDelete, deleteLabel, children }) => {
 
 const MessagesPage = () => {
   const { id } = useParams();
-  const { on, onlineUsers } = useSocket();
+  const { on, onlineUsers, markOnline } = useSocket();
   const { refresh } = useLive();
   const toast = useToast();
   const [conversations, setConversations] = useState([]);
@@ -145,7 +145,12 @@ const MessagesPage = () => {
   const load = () =>
     messageApi
       .conversations()
-      .then(({ data }) => setConversations(data.items))
+      .then(({ data }) => {
+        setConversations(data.items);
+        // A one-time seed from the server's own isOnline() check at fetch
+        // time — live presence events take over the moment that changes.
+        markOnline(data.items.filter((c) => c.participant?.online).map((c) => c.participant.id));
+      })
       .catch(() => setConversations([]))
       .finally(() => setLoading(false));
 
@@ -223,7 +228,7 @@ const MessagesPage = () => {
                         user={convo.participant}
                         size="md"
                         link={false}
-                        online={onlineUsers.has(String(convo.participant?.id)) || convo.participant?.online}
+                        online={onlineUsers.has(String(convo.participant?.id))}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-2">

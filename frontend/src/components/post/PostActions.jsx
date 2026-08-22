@@ -1,11 +1,88 @@
 import { useState } from 'react';
 import Icon from '../ui/Icon.jsx';
+import Modal from '../ui/Modal.jsx';
+import Avatar from '../ui/Avatar.jsx';
 import cn from '../../lib/cn.js';
 import { compactCount } from '../../lib/format.js';
 import { postApi } from '../../api/index.js';
 import { errorMessage } from '../../api/apiClient.js';
 import { useAuthGate } from '../../context/AuthGateProvider.jsx';
 import { useToast } from '../../context/ToastProvider.jsx';
+import useClickOutside from '../../hooks/useClickOutside.js';
+
+const QUOTE_LIMIT = 500;
+
+// The compose surface for "Quote" — a caption on top of the original post,
+// distinct from a plain repost which carries no text of its own.
+const QuoteModal = ({ post, open, onClose, onQuoted }) => {
+  const toast = useToast();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const remaining = QUOTE_LIMIT - text.length;
+  const canSend = text.trim().length > 0 && remaining >= 0 && !busy;
+
+  const close = () => {
+    setText('');
+    onClose();
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!canSend) return;
+    setBusy(true);
+    try {
+      const { data } = await postApi.repost(post.id, text.trim());
+      toast.success('Quoted');
+      setText('');
+      onClose();
+      onQuoted?.(data.post);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not send that quote'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={close} title="Quote post">
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()}>
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          placeholder="Add a caption"
+          aria-label="Add a caption"
+          className="w-full resize-none rounded-xl border border-line bg-transparent p-3 text-[0.9375rem] placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-0"
+        />
+
+        <div className="mt-3 rounded-2xl border border-line p-3">
+          <div className="flex items-center gap-2">
+            <Avatar user={post.author} size="xs" link={false} />
+            <span className="text-[0.8125rem] font-semibold">{post.author?.displayName}</span>
+            <span className="handle">@{post.author?.handle}</span>
+          </div>
+          {post.text && <p className="post-text mt-1.5 line-clamp-4">{post.text}</p>}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <span className={cn('metric text-xs font-semibold', remaining < 0 ? 'text-rose-600' : 'text-muted')}>
+            {remaining < 40 ? remaining : ''}
+          </span>
+          <div className="flex gap-2">
+            <button type="button" className="btn-ghost" onClick={close}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={!canSend}>
+              {busy ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+};
 
 // Tone per action. The hit target is the whole pill, but only the icon gets the
 // tinted circle on hover — a full-width highlight under four adjacent controls
@@ -78,23 +155,36 @@ const PostActions = ({ post, onChange, onReply }) => {
       }
     });
 
-  const toggleRepost = () =>
-    requireAuth(async () => {
-      if (busy) return;
-      setBusy(true);
-      try {
-        const { data } = await postApi.repost(post.id, '');
-        onChange({
-          ...post,
-          counts: { ...post.counts, reposts: post.counts.reposts + (data.post ? 1 : 0) },
-        });
-        toast.success('Reposted');
-      } catch (err) {
-        toast.error(errorMessage(err, 'Could not repost'));
-      } finally {
-        setBusy(false);
-      }
+  const [repostMenuOpen, setRepostMenuOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const repostMenuRef = useClickOutside(() => setRepostMenuOpen(false));
+
+  const doRepost = async () => {
+    if (busy) return;
+    setRepostMenuOpen(false);
+    setBusy(true);
+    const wasReposted = post.repostedByViewer;
+    onChange({
+      ...post,
+      repostedByViewer: !wasReposted,
+      counts: { ...post.counts, reposts: post.counts.reposts + (wasReposted ? -1 : 1) },
     });
+
+    try {
+      if (wasReposted) {
+        await postApi.undoRepost(post.id);
+        toast.success('Repost removed');
+      } else {
+        await postApi.repost(post.id, '');
+        toast.success('Reposted');
+      }
+    } catch (err) {
+      onChange(post);
+      toast.error(errorMessage(err, wasReposted ? 'Could not undo that repost' : 'Could not repost'));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleBookmark = () =>
     requireAuth(async () => {
@@ -126,13 +216,48 @@ const PostActions = ({ post, onChange, onReply }) => {
         label="Reply"
         onClick={() => requireAuth(() => onReply?.(post))}
       />
-      <Action
-        icon="repost"
-        count={post.counts.reposts}
-        tone="repost"
-        label="Repost"
-        onClick={toggleRepost}
+      <div ref={repostMenuRef} className="relative">
+        <Action
+          icon="repost"
+          count={post.counts.reposts}
+          active={post.repostedByViewer}
+          tone="repost"
+          label={post.repostedByViewer ? 'Reposted' : 'Repost'}
+          onClick={() => requireAuth(() => setRepostMenuOpen((v) => !v))}
+        />
+
+        {repostMenuOpen && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="surface absolute left-0 top-9 z-20 w-44 animate-slide-down overflow-hidden rounded-xl border shadow-lift">
+            <button
+              type="button"
+              onClick={doRepost}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium transition hover:bg-sunken">
+              <Icon name="repost" className="h-4 w-4" />
+              {post.repostedByViewer ? 'Undo repost' : 'Repost'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRepostMenuOpen(false);
+                setQuoteOpen(true);
+              }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium transition hover:bg-sunken">
+              <Icon name="feather" className="h-4 w-4" />
+              Quote
+            </button>
+          </div>
+        )}
+      </div>
+
+      <QuoteModal
+        post={post}
+        open={quoteOpen}
+        onClose={() => setQuoteOpen(false)}
+        onQuoted={() => onChange({ ...post, counts: { ...post.counts, reposts: post.counts.reposts + 1 } })}
       />
+
       <Action
         icon="heart"
         count={post.counts.likes}

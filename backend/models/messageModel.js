@@ -5,7 +5,18 @@ const messageSchema = new mongoose.Schema(
     conversation: { type: mongoose.Schema.ObjectId, ref: 'Conversation', required: true },
     sender: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
     text: { type: String, trim: true, maxlength: [2000, 'That message is too long'], default: '' },
+    // The message this one is a reply to, within the same conversation — set
+    // once at send time and never changed. A reply survives the original
+    // being edited (the quoted snippet is refetched live, not frozen) and
+    // survives it being deleted (the ref stays; `deletedAt` on the populated
+    // target is what tells the bubble to render "message deleted" instead).
+    replyTo: { type: mongoose.Schema.ObjectId, ref: 'Message', default: null },
     media: { type: String, default: '' },
+    // Distinguishes a video attachment from an image one — both leave
+    // `mediaDuration` unset, unlike a voice note, so without this a video
+    // would render as a broken <img>. Left undefined for a plain image
+    // (the long-standing default before video existed) and for a voice note.
+    mediaType: { type: String, enum: ['image', 'video'], default: undefined },
     // Set only for a voice message. The client measures it while recording
     // and the bubble shows it immediately, rather than waiting on the
     // `<audio>` element's own `loadedmetadata` — which some browsers report

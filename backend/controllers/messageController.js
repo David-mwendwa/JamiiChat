@@ -7,7 +7,7 @@ import { BadRequestError, NotFoundError, UnauthorizedError } from '../errors/cus
 import { isBlockedBetween } from '../services/visibility.js';
 import { preview } from '../utils/text.js';
 import { clampLimit, paginate, cursorFilter, decodeCursor } from '../utils/cursor.js';
-import { uploadMessageMedia, processImage, saveAudio } from '../middleware/upload.js';
+import { uploadMessageMedia, processImage, saveAudio, saveVideo } from '../middleware/upload.js';
 import {
   emitToUser,
   emitToConversation,
@@ -21,6 +21,19 @@ import {
 // conversation per pair. See the model for why the array itself cannot.
 const sortedParticipants = (a, b) =>
   [String(a), String(b)].sort().map((id) => new mongoose.Types.ObjectId(id));
+
+// Shared by every read path that returns a message. `replyTo` is trimmed to
+// just what a quoted-reply snippet needs to render — not `versions` or
+// `hiddenFor` (already `select: false` on the schema), and not the replied-to
+// message's own `replyTo`, so a chain of replies doesn't nest indefinitely.
+const MESSAGE_POPULATE = [
+  { path: 'sender', select: 'handle displayName avatar' },
+  {
+    path: 'replyTo',
+    select: 'text media mediaType mediaDuration sender deletedAt',
+    populate: { path: 'sender', select: 'handle displayName' },
+  },
+];
 
 const shape = (convo, viewerId) => {
   const other = convo.participants.find((p) => String(p._id ?? p) !== String(viewerId));
@@ -101,6 +114,7 @@ const previewFor = (message) => {
   if (message.deletedAt) return 'Message deleted';
   if (message.text) return preview(message.text);
   if (message.mediaDuration != null) return 'Voice message';
+  if (message.mediaType === 'video') return 'Video';
   return message.media ? 'Photo' : '';
 };
 
@@ -137,7 +151,7 @@ export const listMessages = async (req, res) => {
   };
 
   const { items, nextCursor } = await paginate(
-    Message.find(filter).populate('sender', 'handle displayName avatar').lean(),
+    Message.find(filter).populate(MESSAGE_POPULATE).lean(),
     { cursor: req.query.cursor, limit: clampLimit(req.query.limit, 30) }
   );
 
@@ -164,19 +178,37 @@ export const sendMessage = [
     const text = String(req.body.text ?? '').trim();
     const imageFile = req.files?.image?.[0];
     const audioFile = req.files?.audio?.[0];
+    const videoFile = req.files?.video?.[0];
 
-    if (!text && !imageFile && !audioFile)
+    if (!text && !imageFile && !audioFile && !videoFile)
       throw new BadRequestError('Write a message or attach something');
+
+    // Trusted only as far as "this id names a real message in this
+    // conversation" — a stray id from another thread would otherwise let a
+    // reply quote a message the other participant never sent them.
+    let replyTo = null;
+    const replyToId = req.body.replyTo;
+    if (replyToId) {
+      if (!mongoose.isValidObjectId(replyToId))
+        throw new BadRequestError('That message does not exist');
+      const target = await Message.findOne({ _id: replyToId, conversation: convo._id }).select('_id');
+      if (!target) throw new BadRequestError('That message does not exist');
+      replyTo = target._id;
+    }
 
     // Re-encoded through the same pipeline as post images: the stored
     // extension comes from what sharp decodes, never the client filename, and
-    // re-encoding strips EXIF along with it. Audio has no such pipeline here —
-    // see `saveAudio` — so a voice note is stored as recorded.
+    // re-encoding strips EXIF along with it. Audio and video have no such
+    // pipeline here — see `saveAudio`/`saveVideo` — so both are stored as
+    // recorded/sent.
     const media = imageFile
       ? (await processImage(imageFile.buffer, 'message')).url
       : audioFile
         ? await saveAudio(audioFile)
-        : '';
+        : videoFile
+          ? await saveVideo(videoFile)
+          : '';
+    const mediaType = imageFile ? 'image' : videoFile ? 'video' : undefined;
     const mediaDuration = audioFile ? Number(req.body.duration) || undefined : undefined;
 
     // "Delivered" is decided here rather than guessed from a later ack: if the
@@ -189,7 +221,9 @@ export const sendMessage = [
       conversation: convo._id,
       sender: req.user._id,
       text,
+      replyTo,
       media,
+      mediaType,
       mediaDuration,
       deliveredAt: recipientOnline ? new Date() : null,
     });
@@ -211,7 +245,7 @@ export const sendMessage = [
     await Conversation.updateOne({ _id: convo._id }, { $pull: { hiddenFor: other } });
 
     const populated = await Message.findById(message._id)
-      .populate('sender', 'handle displayName avatar')
+      .populate(MESSAGE_POPULATE)
       .lean();
 
     // Two emits, deliberately. The conversation room reaches whoever has the
@@ -295,7 +329,7 @@ export const editMessage = async (req, res) => {
   await message.save();
 
   const populated = await Message.findById(message._id)
-    .populate('sender', 'handle displayName avatar')
+    .populate(MESSAGE_POPULATE)
     .lean();
 
   await resyncConversationTail(convo._id);
@@ -342,7 +376,7 @@ export const deleteMessage = async (req, res) => {
   }
 
   const populated = await Message.findById(message._id)
-    .populate('sender', 'handle displayName avatar')
+    .populate(MESSAGE_POPULATE)
     .lean();
 
   await resyncConversationTail(convo._id);
