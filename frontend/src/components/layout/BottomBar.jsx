@@ -24,8 +24,10 @@ const Tab = ({ to, icon, label, badge, end }) => (
   </NavLink>
 );
 
-// The rail collapses to this below the `sm` breakpoint. Five destinations is
-// the most a thumb-reachable bar can hold without becoming a guessing game.
+// The rail collapses to this below the `sm` breakpoint. People used to be
+// reachable only from a small icon tucked in Explore's header — real but
+// easy to never notice. Six evenly-spaced icons is still comfortably
+// thumb-reachable on any phone this app targets, so it moved here instead.
 const BottomBar = () => {
   const { user } = useAuth();
   const { notificationCount, messageCount } = useLive();
@@ -60,6 +62,7 @@ const BottomBar = () => {
       <Tab to="/explore" icon="search" label="Explore" />
       <Tab to="/notifications" icon="bell" label="Notifications" badge={notificationCount} />
       <Tab to="/messages" icon="mail" label="Messages" badge={messageCount} />
+      <Tab to="/people" icon="users" label="People" />
       <Tab to={`/${user.handle}`} icon="user" label="Profile" />
     </nav>
   );
