@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import ProfileHeader from '../components/profile/ProfileHeader.jsx';
 import FeedList from '../components/feed/FeedList.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import PostSkeleton from '../components/ui/PostSkeleton.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
+import { useAuth } from '../context/AuthProvider.jsx';
 import { userApi } from '../api/index.js';
 import { compactCount } from '../lib/format.js';
 
 const ProfilePage = () => {
   const { handle } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOwn = user?.handle === handle;
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState('loading');
   const [tab, setTab] = useState('posts');
@@ -79,6 +83,29 @@ const ProfilePage = () => {
         title={profile.displayName}
         subtitle={`${compactCount(profile.counts.posts)} posts`}
         back
+        actions={
+          isOwn && (
+            // Settings and Saved live in the nav rail on desktop; the bottom
+            // bar's five slots are already spoken for, so a phone's only way
+            // in is here, on the one screen that's unambiguously "you".
+            <div className="-mr-2 flex items-center sm:hidden">
+              <Link
+                to="/bookmarks"
+                aria-label="Saved posts"
+                title="Saved"
+                className="rounded-full p-2 transition hover:bg-sunken">
+                <Icon name="bookmark" className="h-5 w-5" />
+              </Link>
+              <Link
+                to="/settings"
+                aria-label="Settings"
+                title="Settings"
+                className="rounded-full p-2 transition hover:bg-sunken">
+                <Icon name="settings" className="h-5 w-5" />
+              </Link>
+            </div>
+          )
+        }
       />
 
       <ProfileHeader profile={profile} onUpdate={loadProfile} />
