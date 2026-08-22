@@ -38,11 +38,7 @@ const ProfilePage = () => {
 
   const fetcher = useCallback(
     async (cursor) => {
-      const { data } = await userApi.posts(handle, {
-        cursor,
-        limit: 20,
-        replies: tab === 'replies' ? 'true' : undefined,
-      });
+      const { data } = await userApi.posts(handle, tab, { cursor, limit: 20 });
       return { items: data.items, nextCursor: data.nextCursor, locked: data.locked };
     },
     [handle, tab]
@@ -120,7 +116,8 @@ const ProfilePage = () => {
           <div className="divider flex">
             {[
               ['posts', 'Posts'],
-              ['replies', 'Posts and replies'],
+              ['replies', 'Replies'],
+              ['reposts', 'Reposts'],
             ].map(([value, label]) => (
               <button
                 key={value}
@@ -143,8 +140,20 @@ const ProfilePage = () => {
             onReply={(post) => navigate(`/post/${post.id}`)}
             empty={
               <EmptyState
-                title={`@${profile.handle} has not posted yet`}
-                description="When they do, their posts show up here."
+                title={
+                  tab === 'replies'
+                    ? `@${profile.handle} has not replied to anyone yet`
+                    : tab === 'reposts'
+                      ? `@${profile.handle} has not reposted anything yet`
+                      : `@${profile.handle} has not posted yet`
+                }
+                description={
+                  tab === 'replies'
+                    ? 'Replies to other posts show up here.'
+                    : tab === 'reposts'
+                      ? 'Posts they repost show up here.'
+                      : 'When they do, their posts show up here.'
+                }
               />
             }
           />

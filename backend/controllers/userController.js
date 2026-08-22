@@ -58,12 +58,14 @@ export const getProfilePosts = async (req, res) => {
       .status(StatusCodes.OK)
       .json({ status: 'success', locked: true, items: [], nextCursor: null });
 
+  const tab = ['posts', 'replies', 'reposts'].includes(req.query.tab) ? req.query.tab : 'posts';
+
   const { items, nextCursor } = await authorFeed({
     viewer: req.user,
     authorId: user._id,
     cursor: req.query.cursor,
     limit: clampLimit(req.query.limit),
-    includeReplies: req.query.replies === 'true',
+    tab,
   });
 
   res.status(StatusCodes.OK).json({ status: 'success', items, nextCursor });

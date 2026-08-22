@@ -184,11 +184,22 @@ export const exploreFeed = async ({ viewer, page = 0, limit }) => {
   };
 };
 
-export const authorFeed = async ({ viewer, authorId, cursor, limit, includeReplies = false }) => {
+// Three mutually exclusive tabs rather than the old "Posts" / "Posts and
+// replies" pair, which quietly overlapped (the second was a superset of the
+// first) and buried reposts inside "Posts" with no way to see just those.
+// A repost is never a reply — `replyTo` is always null on one — so `replies`
+// and `reposts` can't collide.
+const TAB_FILTERS = {
+  posts: { ...topLevelOnly, kind: { $ne: 'repost' } },
+  replies: { replyTo: { $ne: null } },
+  reposts: { ...topLevelOnly, kind: 'repost' },
+};
+
+export const authorFeed = async ({ viewer, authorId, cursor, limit, tab = 'posts' }) => {
   const filter = {
     ...baseFilter,
     author: authorId,
-    ...(includeReplies ? {} : topLevelOnly),
+    ...(TAB_FILTERS[tab] ?? TAB_FILTERS.posts),
     ...cursorFilter(decodeCursor(cursor)),
   };
   const { items, nextCursor } = await paginate(Post.find(filter).populate(POPULATE).lean(), {
