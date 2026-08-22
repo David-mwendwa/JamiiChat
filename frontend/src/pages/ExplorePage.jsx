@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader.jsx';
 import FeedList from '../components/feed/FeedList.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
@@ -30,7 +30,22 @@ const ExplorePage = () => {
 
   return (
     <>
-      <PageHeader title="Explore" subtitle="Ranked by what people are engaging with" />
+      <PageHeader
+        title="Explore"
+        subtitle="Ranked by what people are engaging with"
+        actions={
+          // The nav rail carries People on desktop; the bottom bar's five
+          // thumb-reachable slots are already full, so phones need a second
+          // door in. Explore is where "find something" already lives.
+          <Link
+            to="/people"
+            aria-label="Find people"
+            title="Find people"
+            className="-mr-2 rounded-full p-2 transition hover:bg-sunken sm:hidden">
+            <Icon name="users" className="h-5 w-5" />
+          </Link>
+        }
+      />
 
       <form onSubmit={submit} role="search" className="divider p-3 lg:hidden">
         <div className="relative">
