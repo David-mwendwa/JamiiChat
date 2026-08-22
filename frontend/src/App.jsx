@@ -14,6 +14,7 @@ import TagPage from './pages/TagPage.jsx';
 import PostPage from './pages/PostPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import ConnectionsPage from './pages/ConnectionsPage.jsx';
+import PeoplePage from './pages/PeoplePage.jsx';
 import BookmarksPage from './pages/BookmarksPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import MessagesPage from './pages/MessagesPage.jsx';
@@ -69,6 +70,14 @@ const App = () => {
         element={
           <RequireAuth>
             <BookmarksPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="people"
+        element={
+          <RequireAuth>
+            <PeoplePage />
           </RequireAuth>
         }
       />

@@ -18,3 +18,7 @@ export const extractHandles = (text = '') => {
 
 export const preview = (text = '', length = 80) =>
   text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
+
+// Escapes a user-supplied string before it reaches a RegExp — an unescaped
+// query like `a{1,99999}` is a denial of service, not a search.
+export const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

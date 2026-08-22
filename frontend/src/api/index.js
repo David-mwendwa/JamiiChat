@@ -34,6 +34,7 @@ export const postApi = {
 };
 
 export const userApi = {
+  list: (params) => apiClient.get('/users', { params }),
   profile: (handle) => apiClient.get(`/users/${handle}`),
   posts: (handle, params) => apiClient.get(`/users/${handle}/posts`, { params }),
   followers: (handle, params) => apiClient.get(`/users/${handle}/followers`, { params }),

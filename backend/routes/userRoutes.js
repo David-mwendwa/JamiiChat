@@ -19,6 +19,7 @@ import {
   unmuteUser,
   listBlocked,
   suggestions,
+  listUsers,
 } from '../controllers/userController.js';
 
 const router = Router();
@@ -26,6 +27,7 @@ const router = Router();
 // Fixed segments are declared before `/:handle`, or a request for
 // /users/suggestions resolves as a profile lookup for someone called
 // "suggestions".
+router.get('/', protect, listUsers);
 router.get('/suggestions', protect, suggestions);
 router.get('/requests', protect, listRequests);
 router.get('/blocked', protect, listBlocked);

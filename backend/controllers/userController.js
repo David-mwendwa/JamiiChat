@@ -9,6 +9,7 @@ import { followState, followStates, canViewAuthor, isBlockedBetween, viewerScope
 import { notify, removeNotification } from '../services/notify.js';
 import { processImage, uploadSingle, deleteStoredFile } from '../middleware/upload.js';
 import { clampLimit, paginate, cursorFilter, decodeCursor } from '../utils/cursor.js';
+import { escapeRegex } from '../utils/text.js';
 import { authorFeed } from '../services/feed.js';
 import { isOnline } from '../socket/emit.js';
 
@@ -350,6 +351,59 @@ export const listBlocked = async (req, res) => {
   res
     .status(StatusCodes.OK)
     .json({ status: 'success', items: rows.map((r) => r.blocked).filter(Boolean) });
+};
+
+// The full member directory — everyone, not just accounts you don't already
+// follow (that's `suggestions`, a discovery widget with a different job).
+// Cursor-paginated like every other list here, with an optional `q` that
+// narrows it to a handle/name match rather than requiring a separate search
+// page for "is there anyone called...".
+export const listUsers = async (req, res) => {
+  const scope = await viewerScope(req.user._id);
+  const excluded = [
+    new mongoose.Types.ObjectId(String(req.user._id)),
+    ...scope.blocked.map((id) => new mongoose.Types.ObjectId(id)),
+  ];
+
+  const q = String(req.query.q ?? '').trim();
+  const limit = clampLimit(req.query.limit);
+
+  const filter = { _id: { $nin: excluded }, active: { $ne: false } };
+
+  // Combined with `$and` rather than a second top-level `$or` key — the
+  // cursor's own `$or` (createdAt/_id tiebreak) would otherwise be silently
+  // overwritten by a search `$or` added the same way, and only one of the
+  // two conditions would actually apply.
+  const clauses = [];
+  const cursorClause = cursorFilter(decodeCursor(req.query.cursor));
+  if (cursorClause.$or) clauses.push(cursorClause);
+  if (q) {
+    const pattern = new RegExp(escapeRegex(q), 'i');
+    const barePattern = new RegExp(`^${escapeRegex(q.replace(/^@/, ''))}`, 'i');
+    clauses.push({ $or: [{ handle: barePattern }, { displayName: pattern }] });
+  }
+  if (clauses.length) filter.$and = clauses;
+
+  const { items, nextCursor } = await paginate(User.find(filter).lean(), {
+    cursor: req.query.cursor,
+    limit,
+  });
+
+  const relationships = await followStates(req.user._id, items.map((u) => u._id));
+
+  res.status(StatusCodes.OK).json({
+    status: 'success',
+    items: items.map((u) => ({
+      id: u._id,
+      handle: u.handle,
+      displayName: u.displayName,
+      avatar: u.avatar,
+      bio: u.bio,
+      counts: u.counts,
+      relationship: relationships.get(String(u._id)) ?? 'none',
+    })),
+    nextCursor,
+  });
 };
 
 // Accounts the viewer does not follow, ranked by follower count. Deliberately

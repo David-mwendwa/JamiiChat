@@ -24,6 +24,7 @@ export const RESERVED_HANDLES = new Set([
   '404',
   'home',
   'api',
+  'people',
 ]);
 
 export const isReservedHandle = (handle) => RESERVED_HANDLES.has(String(handle).toLowerCase());

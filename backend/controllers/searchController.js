@@ -5,10 +5,7 @@ import Post from '../models/postModel.js';
 import { viewerScope, followStates } from '../services/visibility.js';
 import { hydratePosts, postPopulate } from '../services/feed.js';
 import { clampLimit } from '../utils/cursor.js';
-
-// Escapes a user-supplied string before it reaches a RegExp — an unescaped
-// query like `a{1,99999}` is a denial of service, not a search.
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+import { escapeRegex } from '../utils/text.js';
 
 export const search = async (req, res) => {
   const q = String(req.query.q ?? '').trim();

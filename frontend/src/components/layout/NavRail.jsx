@@ -55,6 +55,7 @@ const NavRail = ({ onCompose }) => {
           <>
             <Item to="/notifications" icon="bell" label="Notifications" badge={notificationCount} />
             <Item to="/messages" icon="mail" label="Messages" badge={messageCount} />
+            <Item to="/people" icon="users" label="People" />
             <Item to="/bookmarks" icon="bookmark" label="Saved" />
             <Item to={`/${user.handle}`} icon="user" label="Profile" />
             <Item to="/settings" icon="settings" label="Settings" />
