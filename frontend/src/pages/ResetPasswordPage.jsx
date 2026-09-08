@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/auth/AuthLayout.jsx';
 import { useAuth } from '../context/AuthProvider.jsx';
 import { errorMessage } from '../api/apiClient.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const ResetPasswordPage = () => {
+  usePageMeta('Choose a new password', 'Set a new password for your JamiiChat account.', { noindex: true });
   const { token } = useParams();
   const navigate = useNavigate();
   const { resetPassword } = useAuth();

@@ -5,9 +5,11 @@ import FeedList from '../components/feed/FeedList.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { feedApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const TagPage = () => {
   const { tag } = useParams();
+  usePageMeta(`#${tag}`, `Posts tagged #${tag} on JamiiChat.`);
   const navigate = useNavigate();
 
   const fetcher = useCallback(

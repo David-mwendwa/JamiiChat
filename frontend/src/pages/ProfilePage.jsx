@@ -10,6 +10,7 @@ import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { useAuth } from '../context/AuthProvider.jsx';
 import { userApi } from '../api/index.js';
 import { compactCount } from '../lib/format.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const ProfilePage = () => {
   const { handle } = useParams();
@@ -19,6 +20,19 @@ const ProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState('loading');
   const [tab, setTab] = useState('posts');
+
+  /*
+   * Named from the handle until the profile lands, then from the display name.
+   *
+   * The handle is in the URL, so it is known on the first render and the tab
+   * is right immediately rather than reading "JamiiChat" and changing under
+   * the reader a moment later. A private or missing account still gets its own
+   * title — the alternative is every one of them sharing the site default.
+   */
+  usePageMeta(
+    profile ? `${profile.displayName} (@${profile.handle})` : `@${handle}`,
+    profile?.bio || `Posts, replies and reposts from @${handle} on JamiiChat.`
+  );
 
   const loadProfile = useCallback(async () => {
     try {

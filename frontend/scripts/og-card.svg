@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <!--
+    Source for public/og.jpg, the image rendered when a JamiiChat link is
+    shared into Slack, WhatsApp, LinkedIn or X. Regenerate after editing with:
+
+      npm run og
+
+    (XML forbids a double hyphen inside a comment, so command flags are
+    described rather than pasted.)
+
+    Why the canvas is 1200x1200 for a 1200x630 card: qlmanage always rasterises
+    into a SQUARE thumbnail and scales the artwork to fit, so a 1200x630 source
+    comes back magnified and cropped rather than at 1:1. A square source means
+    one SVG unit maps to one pixel exactly; the card sits in a 630-tall band
+    centred at y=285, and the sips crop takes that band back out. The outer
+    square is painted the same background so the crop can never reveal a seam.
+
+    Colour and type are the app's own, read off tailwind.config.js and
+    index.css rather than invented for the card: violet-600 as the ground,
+    amber-400 rationed to a single element exactly as the product rations it,
+    and the dark violet-black canvas the app uses in dark mode. Type is Plus
+    Jakarta Sans, embedded as base64 woff2 by scripts/build-og.mjs into the
+    empty style element below.
+
+    An unfurl renders around 400px wide, a third of this image, so nothing
+    below about 22 units survives. That is what decides the copy: short lines,
+    large.
+  -->
+  <style id="fonts" />
+
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1229" />
+      <stop offset="55%" stop-color="#0e0c15" />
+      <stop offset="100%" stop-color="#160f26" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.12" r="0.75">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowAmber" cx="0.92" cy="0.95" r="0.6">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#fbbf24" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="70%" stop-color="#a78bfa" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="1200" fill="#0e0c15" />
+
+  <!-- The 630-tall card band the crop recovers. -->
+  <g transform="translate(0 285)">
+    <rect width="1200" height="630" fill="url(#ground)" />
+    <rect width="1200" height="630" fill="url(#glow)" />
+    <rect width="1200" height="630" fill="url(#glowAmber)" />
+    <rect x="0" y="0" width="1200" height="5" fill="url(#rule)" />
+
+    <!-- The app's mark, the same graph glyph as public/logo.svg at 32x scale.
+         Drawn rather than referenced: an external href does not resolve in a
+         rasteriser, and it fails silently. -->
+    <g transform="translate(80 74) scale(1.75)">
+      <circle cx="16" cy="16" r="15" fill="#7c3aed" />
+      <g stroke="#ffffff" stroke-width="1.8" stroke-linecap="round">
+        <path d="M11 12.5 21 19.5M11 19.5 21 12.5M11 12.5v7" />
+      </g>
+      <circle cx="11" cy="12.5" r="3" fill="#ffffff" />
+      <circle cx="21" cy="12.5" r="2.6" fill="#ffffff" />
+      <circle cx="11" cy="19.5" r="2.6" fill="#ffffff" />
+      <circle cx="21" cy="19.5" r="3" fill="#fbbf24" />
+    </g>
+
+    <text x="156" y="112" font-family="Plus Jakarta Sans" font-size="34" font-weight="800" fill="#f1eef8" letter-spacing="-0.6">JamiiChat</text>
+
+    <text x="80" y="268" font-family="Plus Jakarta Sans" font-size="92" font-weight="800" fill="#ffffff" letter-spacing="-3">Post. Follow. Talk.</text>
+
+    <text x="80" y="342" font-family="Plus Jakarta Sans" font-size="34" font-weight="500" fill="#b9b0d4">Messages, typing indicators and read receipts</text>
+    <text x="80" y="388" font-family="Plus Jakarta Sans" font-size="34" font-weight="500" fill="#b9b0d4">that arrive the moment they happen.</text>
+
+    <!-- One amber element on the card, matching how the product rations it:
+         the live indicator, and nothing else. -->
+    <g transform="translate(80 470)">
+      <rect width="258" height="52" rx="26" fill="#fbbf24" fill-opacity="0.12" stroke="#fbbf24" stroke-opacity="0.4" />
+      <circle cx="30" cy="26" r="7" fill="#fbbf24" />
+      <text x="52" y="34" font-family="Plus Jakarta Sans" font-size="22" font-weight="600" fill="#fcd34d">Live conversations</text>
+    </g>
+
+    <g transform="translate(364 470)">
+      <rect width="196" height="52" rx="26" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14" />
+      <text x="28" y="34" font-family="Plus Jakarta Sans" font-size="22" font-weight="600" fill="#cfc7e4">MERN + Socket.IO</text>
+    </g>
+  </g>
+</svg>

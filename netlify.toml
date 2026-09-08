@@ -15,6 +15,12 @@
 
 # Client-side routing: every unmatched path is served by the SPA shell. Must
 # stay last so real files (and /assets/*) win first.
+#
+# This is deliberately not `force`d, which is what lets the prerendered pages
+# work: Netlify serves a real file in preference to an unforced redirect, so
+# /login is answered by dist/login/index.html — the version with its own title,
+# description and rendered markup — and this rule stays the fallback for
+# everything the build did not write, which is most of the app.
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -34,7 +40,34 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# The HTML is never cached: it names the fingerprinted asset files, so a stale
+# copy pins a reader to a deploy that no longer exists. Every prerendered route
+# is its own index.html and needs the same treatment — /login is a file now,
+# not a redirect to one.
 [[headers]]
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-store, must-revalidate"
+
+[[headers]]
+  for = "/*/index.html"
+  [headers.values]
+    Cache-Control = "no-store, must-revalidate"
+
+# Fonts are self-hosted (see frontend/public/fonts) and their contents never
+# change under a given filename — a new subset gets a new name. They are also
+# on the critical path for first paint, so they are the assets most worth
+# never fetching twice.
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Access-Control-Allow-Origin = "*"
+
+# The unfurl image, fetched by every service that renders a shared link. A day
+# rather than a year: it is not fingerprinted, and a redesigned card that stays
+# stale in Slack's cache for a year is worse than one extra request.
+[[headers]]
+  for = "/og.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

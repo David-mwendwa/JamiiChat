@@ -1,7 +1,19 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, lazy, Suspense, useCallback, useContext, useState } from 'react';
 import Modal from '../components/ui/Modal.jsx';
-import LoginForm from '../components/auth/LoginForm.jsx';
+import Spinner from '../components/ui/Spinner.jsx';
 import { useAuth } from './AuthProvider.jsx';
+
+/*
+ * The sign-in form, fetched when the gate first opens.
+ *
+ * This provider wraps the whole app, so a static import put the form — and the
+ * avatar rendering it uses for the test-account list — into the entry chunk,
+ * where every reader downloaded it before first paint for a modal that opens
+ * only when a signed-out visitor tries to like or reply to something. Modal
+ * itself stays a static import: AppLayout uses it for the composer, so it is
+ * in the entry bundle either way.
+ */
+const LoginForm = lazy(() => import('../components/auth/LoginForm.jsx'));
 
 const AuthGateContext = createContext(null);
 
@@ -41,13 +53,20 @@ export const AuthGateProvider = ({ children }) => {
     <AuthGateContext.Provider value={{ requireAuth }}>
       {children}
       <Modal open={Boolean(pendingAction)} onClose={close} title="Sign in to continue">
-        <LoginForm
-          onSuccess={() => {
-            const action = pendingAction;
-            setPendingAction(null);
-            action?.();
-          }}
-        />
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-8">
+              <Spinner label="Loading sign in" />
+            </div>
+          }>
+          <LoginForm
+            onSuccess={() => {
+              const action = pendingAction;
+              setPendingAction(null);
+              action?.();
+            }}
+          />
+        </Suspense>
       </Modal>
     </AuthGateContext.Provider>
   );

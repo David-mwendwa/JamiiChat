@@ -9,6 +9,7 @@ import PostSkeleton from '../components/ui/PostSkeleton.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { postApi } from '../api/index.js';
 import { useAuth } from '../context/AuthProvider.jsx';
+import usePageMeta from '../lib/pageMeta.js';
 
 const PostPage = () => {
   const { id } = useParams();
@@ -17,6 +18,21 @@ const PostPage = () => {
   const [post, setPost] = useState(null);
   const [ancestors, setAncestors] = useState([]);
   const [status, setStatus] = useState('loading');
+
+  /*
+   * A post's own text is its description, trimmed to what an unfurl shows.
+   *
+   * A thread URL is the single most-pasted kind of link this app produces, and
+   * every one of them previewed as the site homepage. Truncation is at 160
+   * characters because that is roughly where search results and link previews
+   * cut, and a description cut mid-word by someone else's renderer reads worse
+   * than one cut deliberately.
+   */
+  const author = post?.author;
+  usePageMeta(
+    author ? `${author.displayName} on JamiiChat` : 'Post',
+    post?.text ? `${post.text.slice(0, 157)}${post.text.length > 157 ? '…' : ''}` : undefined
+  );
 
   useEffect(() => {
     let cancelled = false;

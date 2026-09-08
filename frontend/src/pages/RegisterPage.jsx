@@ -5,10 +5,12 @@ import useDebounce from '../hooks/useDebounce.js';
 import { useAuth } from '../context/AuthProvider.jsx';
 import { authApi } from '../api/index.js';
 import { errorMessage } from '../api/apiClient.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 const RegisterPage = () => {
+  usePageMeta('Create account', 'Create a JamiiChat account — pick a handle, follow a few people and start posting.');
   const { register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

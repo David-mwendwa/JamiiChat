@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
     <!-- maximum-scale=1 stops iOS Safari's auto-zoom on focusing a sub-16px
          input, which does not undo itself. That used to be handled by a
          16px floor on .field's font-size instead, but the floor made the
@@ -13,12 +14,86 @@
          is unavailable everywhere, not just on inputs. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <meta name="theme-color" content="#7c3aed" />
+
+    <title>JamiiChat — post, follow and talk in real time</title>
     <meta
       name="description"
-      content="JamiiChat — a place to post, follow and talk." />
-    <title>JamiiChat</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+      content="JamiiChat is a social platform built for live conversation: posts and threaded replies, a following feed, and direct messages that arrive as they are typed, with read receipts and presence." />
+    <link rel="canonical" href="https://jamiichat.netlify.app/" />
+
+    <!-- Absolute URLs are required throughout. A crawler ignores a relative
+         og:image, so a shared link renders as a blank card. scripts/prerender.mjs
+         rewrites every tag below per route; these are the shell defaults, and
+         they must move together with `site.url` in src/data/site.js — the
+         prerender only rewrites what the built pages already carry. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="JamiiChat" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="https://jamiichat.netlify.app/" />
+    <meta property="og:title" content="JamiiChat — post, follow and talk in real time" />
+    <meta
+      property="og:description"
+      content="A social platform built for live conversation: posts and threaded replies, a following feed, and direct messages that arrive as they are typed." />
+    <meta property="og:image" content="https://jamiichat.netlify.app/og.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The JamiiChat mark on a violet ground, above the words “Post, follow and talk” and a line reading “Real-time social, built on the MERN stack”." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="JamiiChat — post, follow and talk in real time" />
+    <meta
+      name="twitter:description"
+      content="A social platform built for live conversation: posts and threaded replies, a following feed, and direct messages that arrive as they are typed." />
+    <meta name="twitter:image" content="https://jamiichat.netlify.app/og.jpg" />
+    <meta
+      name="twitter:image:alt"
+      content="The JamiiChat mark on a violet ground, above the words “Post, follow and talk”." />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://jamiichat.netlify.app/#app",
+        "name": "JamiiChat",
+        "url": "https://jamiichat.netlify.app",
+        "applicationCategory": "SocialNetworkingApplication",
+        "operatingSystem": "Any",
+        "description": "A social platform built for live conversation: posts and threaded replies, a following feed, and direct messages that arrive as they are typed, with read receipts and presence.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "David Mwendwa",
+          "url": "https://github.com/David-mwendwa"
+        }
+      }
+    </script>
+
+    <!-- Self-hosted, latin subsets. These three families used to arrive via an
+         `@import` on the first line of index.css: the browser had to fetch and
+         parse the app stylesheet, discover the import, then make two more
+         cross-origin round trips (googleapis for a stylesheet, gstatic for the
+         files) before a single glyph existed — all of it blocking render.
+         Served from our own already-warm connection, that chain is gone.
+
+         One preload, and it is Plus Jakarta Sans: it sets the UI and every
+         heading, so it is the face the first paint is waiting on. Inter carries
+         post body text, which is below the fold on the landing page, and mono
+         is incidental — both are fetched by fonts.css without buying priority
+         away from the face that blocks the header. See public/fonts/fonts.css
+         before adding a weight. -->
+    <link
+      rel="preload"
+      href="/fonts/PlusJakartaSans.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
   </head>
   <body>
     <div id="root"></div>

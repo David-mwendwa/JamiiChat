@@ -5,8 +5,10 @@ import FeedList from '../components/feed/FeedList.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { postApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const BookmarksPage = () => {
+  usePageMeta('Bookmarks', 'Posts you saved to come back to.', { noindex: true });
   const navigate = useNavigate();
 
   const fetcher = useCallback(async (cursor) => {

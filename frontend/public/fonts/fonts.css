@@ -1,0 +1,56 @@
+/* Self-hosted, latin subset only.
+ *
+ * These three families used to arrive through an `@import` on line 1 of
+ * index.css, which is the slowest way to load a font. The browser has to
+ * download the app's stylesheet, parse it, discover the import, then open a
+ * connection to fonts.googleapis.com for a second stylesheet, parse that, and
+ * only then request the woff2 files from a third origin. Two DNS lookups and
+ * two TLS handshakes stand between the CSS arriving and any glyph existing,
+ * and render is blocked for the whole chain.
+ *
+ * Serving them from our own origin removes both round trips: the connection is
+ * already open and warm from the document itself.
+ *
+ * One file per family with a weight RANGE rather than one rule per weight —
+ * these are variable fonts, so Google's 400 and 700 URLs resolve to the same
+ * bytes. Declaring each weight separately ships the family once per weight and
+ * the browser cannot tell the files are identical.
+ *
+ * Only the weights the app computes to are here. A weight that is missing does
+ * not fail; the browser synthesises it from the nearest one, so check with
+ * getComputedStyle before adding a face rather than assuming a bad render
+ * means an absent file.
+ */
+
+/* Plus Jakarta Sans carries UI and headings, so it is the face in the critical
+   path and the only one preloaded in index.html. 400-800: the app uses 400
+   through extrabold on the landing hero. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(/fonts/PlusJakartaSans.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Inter carries post body text, where its larger x-height wins at 15px. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(/fonts/Inter.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Mono is used in a handful of places (handles in some contexts, code) and is
+   never the LCP element, so it is deliberately not preloaded. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url(/fonts/JetBrainsMono.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

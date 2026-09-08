@@ -4,6 +4,8 @@ import Avatar from '../components/ui/Avatar.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import Logo from '../components/ui/Logo.jsx';
 import cn from '../lib/cn.js';
+import usePageMeta from '../lib/pageMeta.js';
+import { site } from '../data/site.js';
 
 // A four-beat script for the mock conversation below, timed in ms from the
 // start of one loop. Reuses the app's real motion — the slam animation a sent
@@ -46,8 +48,14 @@ const TypingDots = () => (
 const LiveMock = () => {
   const [step, setStep] = useState(-1);
   const [tick, setTick] = useState('sent');
+  // `typeof window` rather than an optional chain: this runs during render, and
+  // this page is prerendered to static HTML by scripts/prerender.mjs, where
+  // there is no `window` to reach for at all. `window?.matchMedia` does not
+  // help — the identifier itself is undeclared, so it throws before the
+  // optional chain is reached.
   const reduced = useRef(
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    typeof window !== 'undefined' &&
+      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
   );
 
   useEffect(() => {
@@ -127,7 +135,12 @@ const LiveMock = () => {
 
 // Shown only to a signed-out visitor at the root. Signed in, the same path is
 // the home feed.
-const LandingPage = () => (
+const LandingPage = () => {
+  // No title argument: this is the site's front page, so it takes the site's
+  // own name and tagline rather than a section heading appended to it.
+  usePageMeta(null, site.description);
+
+  return (
   <div className="relative overflow-hidden">
     {/* Ambient colour field, not a UI element — two soft blurred fields that
         drift slowly behind the hero. Skipped entirely for reduced motion via
@@ -216,6 +229,7 @@ const LandingPage = () => (
       </ul>
     </div>
   </div>
-);
+  );
+};
 
 export default LandingPage;

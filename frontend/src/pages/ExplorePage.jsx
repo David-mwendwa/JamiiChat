@@ -6,8 +6,10 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { feedApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const ExplorePage = () => {
+  usePageMeta('Explore', 'What people are talking about on JamiiChat right now — trending tags, active conversations and new voices to follow.');
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [query, setQuery] = useState(params.get('q') ?? '');

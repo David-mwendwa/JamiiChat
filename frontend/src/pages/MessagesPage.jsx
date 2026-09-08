@@ -13,6 +13,7 @@ import { errorMessage } from '../api/apiClient.js';
 import { useSocket } from '../socket/SocketProvider.jsx';
 import { useLive } from '../context/LiveProvider.jsx';
 import { useToast } from '../context/ToastProvider.jsx';
+import usePageMeta from '../lib/pageMeta.js';
 
 // Width of the delete button a leftward swipe reveals. Swipe-left-reveals-
 // right is the direction every mail/chat app on iOS and Android already
@@ -120,6 +121,7 @@ const SwipeableRow = ({ onDelete, deleteLabel, children }) => {
 };
 
 const MessagesPage = () => {
+  usePageMeta('Messages', 'Your direct conversations.', { noindex: true });
   const { id } = useParams();
   const { on, onlineUsers, markOnline } = useSocket();
   const { refresh } = useLive();

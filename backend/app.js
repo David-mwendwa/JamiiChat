@@ -2,6 +2,7 @@ import 'express-async-errors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import { UnauthorizedError } from './errors/customErrors.js';
 import helmet from 'helmet';
@@ -36,6 +37,21 @@ export const allowedOrigins = [
 
 const app = express();
 app.set('trust proxy', 1);
+
+/*
+ * Gzip every response big enough to be worth it.
+ *
+ * The feed, the conversation list and a thread's messages are all JSON lists
+ * of repetitive keys, which is close to the best case for gzip — the API was
+ * sending them raw. It sits above the routes so it covers the API, the health
+ * check and the static media route alike, and below nothing that needs the
+ * uncompressed bytes.
+ *
+ * The threshold is compression's own default (1KB): below that the gzip header
+ * costs more than the saving, and a compressed 200-byte response is a slightly
+ * larger 200-byte response plus the CPU to produce it.
+ */
+app.use(compression());
 
 app.use(helmet());
 

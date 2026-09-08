@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import AuthLayout from '../components/auth/AuthLayout.jsx';
 import { authApi } from '../api/index.js';
 import { errorMessage } from '../api/apiClient.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const ForgotPasswordPage = () => {
+  usePageMeta('Reset your password', 'Send a reset link to the email address on your JamiiChat account.');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);

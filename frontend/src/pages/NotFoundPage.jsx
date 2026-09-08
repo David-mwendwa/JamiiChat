@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom';
 import Logo from '../components/ui/Logo.jsx';
+import usePageMeta from '../lib/pageMeta.js';
 
-const NotFoundPage = () => (
+const NotFoundPage = () => {
+  usePageMeta('Page not found', 'That page does not exist on JamiiChat.', {
+    noindex: true,
+  });
+
+  return (
   <div className="flex min-h-screen flex-col items-center justify-center gap-5 px-6 text-center">
     <Logo className="h-12 w-12" />
     <h1 className="text-2xl sm:text-3xl">This page does not exist</h1>
@@ -12,6 +18,7 @@ const NotFoundPage = () => (
       Back home
     </Link>
   </div>
-);
+  );
+};
 
 export default NotFoundPage;

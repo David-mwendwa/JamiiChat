@@ -9,6 +9,7 @@ import { errorMessage } from '../../api/apiClient.js';
 import { useAuth } from '../../context/AuthProvider.jsx';
 import { useToast } from '../../context/ToastProvider.jsx';
 import { useTheme, FONT_SCALES } from '../../context/ThemeProvider.jsx';
+import usePageMeta from '../../lib/pageMeta.js';
 
 const Section = ({ title, description, children }) => (
   <section className="divider px-4 py-5">
@@ -21,6 +22,7 @@ const Section = ({ title, description, children }) => (
 );
 
 const SettingsPage = () => {
+  usePageMeta('Settings', 'Your profile, appearance, privacy and account settings.', { noindex: true });
   const { user, setUser, logout } = useAuth();
   const toast = useToast();
   const { theme, setTheme, fontScale, setFontScale } = useTheme();

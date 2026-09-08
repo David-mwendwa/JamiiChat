@@ -8,10 +8,17 @@ import FollowButton from '../components/profile/FollowButton.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import useIntersection from '../hooks/useIntersection.js';
 import { userApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 // Followers and following are the same screen with a different endpoint.
 const ConnectionsPage = ({ mode }) => {
   const { handle } = useParams();
+  usePageMeta(
+    `${mode === 'followers' ? 'Followers' : 'Following'} · @${handle}`,
+    mode === 'followers'
+      ? `People who follow @${handle} on JamiiChat.`
+      : `People @${handle} follows on JamiiChat.`
+  );
 
   const fetcher = useCallback(
     async (cursor) => {

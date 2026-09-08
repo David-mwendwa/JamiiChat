@@ -10,6 +10,7 @@ import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import useIntersection from '../hooks/useIntersection.js';
 import useDebounce from '../hooks/useDebounce.js';
 import { userApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 // The full member directory — everyone on JamiiChat, not just people you
 // don't already follow (that's the "who to follow" widget elsewhere). Search
@@ -17,6 +18,7 @@ import { userApi } from '../api/index.js';
 // different screen, since "is there anyone called..." is the same question
 // as "let me see who's here" with a few characters typed.
 const PeoplePage = () => {
+  usePageMeta('People', 'Find people to follow on JamiiChat.');
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 300);
 

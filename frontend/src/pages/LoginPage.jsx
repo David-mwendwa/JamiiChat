@@ -1,8 +1,10 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthLayout from '../components/auth/AuthLayout.jsx';
 import LoginForm from '../components/auth/LoginForm.jsx';
+import usePageMeta from '../lib/pageMeta.js';
 
 const LoginPage = () => {
+  usePageMeta('Sign in', 'Sign in to JamiiChat to post, follow and pick up your conversations.');
   const navigate = useNavigate();
   const location = useLocation();
 

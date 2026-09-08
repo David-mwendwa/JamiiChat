@@ -12,6 +12,7 @@ import { relativeTime } from '../lib/format.js';
 import { notificationApi } from '../api/index.js';
 import { useSocket } from '../socket/SocketProvider.jsx';
 import { useLive } from '../context/LiveProvider.jsx';
+import usePageMeta from '../lib/pageMeta.js';
 
 const ICONS = {
   like: { name: 'heart', tone: 'text-rose-500' },
@@ -54,6 +55,7 @@ const describe = (notification) => {
 };
 
 const NotificationsPage = () => {
+  usePageMeta('Notifications', 'Replies, likes, reposts, mentions and new followers.', { noindex: true });
   const { on } = useSocket();
   const { setNotificationCount } = useLive();
 

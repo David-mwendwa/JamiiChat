@@ -9,6 +9,7 @@ import { compactCount, relativeTime } from '../../lib/format.js';
 import { adminApi } from '../../api/index.js';
 import { errorMessage } from '../../api/apiClient.js';
 import { useToast } from '../../context/ToastProvider.jsx';
+import usePageMeta from '../../lib/pageMeta.js';
 
 const Stat = ({ label, value, tone }) => (
   <div className="rounded-xl border border-line p-3.5 dark:border-line">
@@ -28,6 +29,7 @@ const REASON_LABELS = {
 };
 
 const AdminPage = () => {
+  usePageMeta('Moderation', 'Reports queue and account administration.', { noindex: true });
   const toast = useToast();
   const [stats, setStats] = useState(null);
   const [reports, setReports] = useState([]);

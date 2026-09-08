@@ -6,8 +6,10 @@ import FeedList from '../components/feed/FeedList.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import useInfiniteFeed from '../hooks/useInfiniteFeed.js';
 import { feedApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const HomePage = () => {
+  usePageMeta('Home', 'Posts from the people you follow, newest first.');
   const navigate = useNavigate();
   const [tab, setTab] = useState('following');
 

@@ -2,7 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/index.js';
 import { AUTH_EXPIRED_EVENT } from '../api/apiClient.js';
-import { getToken, setToken, clearToken } from '../lib/storage.js';
+import {
+  getToken,
+  setToken,
+  clearToken,
+  getCachedUser,
+  setCachedUser,
+  clearCachedUser,
+} from '../lib/storage.js';
 import { clearFeedCache } from '../hooks/useInfiniteFeed.js';
 
 const AuthContext = createContext(null);
@@ -15,12 +22,23 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  // Seeded from the cache so a returning reader's own screen paints on the
+  // first frame, with no network in the way. The server still decides whether
+  // this session is real; the check below runs anyway and corrects it.
+  const [user, setUser] = useState(() => (getToken() ? getCachedUser() : null));
   const [token, setTokenState] = useState(() => getToken());
-  // Distinct from "no user": until the stored token has been checked we do not
-  // know whether there is a session, and rendering the signed-out view in the
-  // meantime would flash the landing page at a signed-in reader.
-  const [checking, setChecking] = useState(true);
+  /*
+   * Distinct from "no user": until the stored token has been checked we do not
+   * know whether there is a session, and rendering the signed-out view in the
+   * meantime would flash the landing page at a signed-in reader.
+   *
+   * This is now only true in the genuinely cold case — a stored token with no
+   * cached user, so there is nothing to paint and guessing would flash the
+   * wrong screen. With a cache present the app renders straight away and the
+   * check happens underneath it, which is what removes the free tier's cold
+   * start (~23s, measured) from the critical path instead of staring at it.
+   */
+  const [checking, setChecking] = useState(() => Boolean(getToken()) && !getCachedUser());
 
   useEffect(() => {
     let cancelled = false;
@@ -32,10 +50,24 @@ export const AuthProvider = ({ children }) => {
       }
       try {
         const { data } = await authApi.me();
+        // Revalidation is also what keeps the cache honest: a display name or
+        // avatar changed on another device lands here.
+        setCachedUser(data.user);
         if (!cancelled) setUser(data.user);
-      } catch {
-        clearToken();
-        if (!cancelled) setTokenState(null);
+      } catch (error) {
+        // A failed request is not a failed session. The API sleeps on the free
+        // tier and phones lose signal; treating either as "signed out" would
+        // throw away a valid session and drop the reader on the landing page
+        // for being offline. Only an answer from the server — 401, handled by
+        // the interceptor's AUTH_EXPIRED event — ends a session.
+        if (error?.response?.status === 401) {
+          clearToken();
+          clearCachedUser();
+          if (!cancelled) {
+            setTokenState(null);
+            setUser(null);
+          }
+        }
       } finally {
         if (!cancelled) setChecking(false);
       }
@@ -52,11 +84,27 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const onExpired = () => {
       clearFeedCache();
+      clearCachedUser();
       setUser(null);
       setTokenState(null);
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  /*
+   * The setter every consumer gets, so the cache cannot drift from the state.
+   *
+   * SettingsPage writes the user here after a profile save. With a bare
+   * setUser, the state was right and the cache still held the previous name
+   * and avatar — which nothing revealed until the next refresh painted the old
+   * profile from cache for a frame before revalidation corrected it. Anything
+   * that changes the user goes through this.
+   */
+  const updateUser = useCallback((next) => {
+    setUser(next);
+    if (next) setCachedUser(next);
+    else clearCachedUser();
   }, []);
 
   const adopt = useCallback((data) => {
@@ -65,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     // switcher on the login page makes rapid account-hopping routine.
     clearFeedCache();
     setToken(data.token);
+    setCachedUser(data.user);
     setTokenState(data.token);
     setUser(data.user);
   }, []);
@@ -114,14 +163,24 @@ export const AuthProvider = ({ children }) => {
     navigate('/', { replace: true });
 
     clearToken();
+    clearCachedUser();
     clearFeedCache();
     setUser(null);
     setTokenState(null);
   }, [navigate]);
 
   const value = useMemo(
-    () => ({ user, token, checking, login, register, resetPassword, logout, setUser }),
-    [user, token, checking, login, register, resetPassword, logout]
+    () => ({
+      user,
+      token,
+      checking,
+      login,
+      register,
+      resetPassword,
+      logout,
+      setUser: updateUser,
+    }),
+    [user, token, checking, login, register, resetPassword, logout, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,6 +10,7 @@ import FollowButton from '../components/profile/FollowButton.jsx';
 import useDebounce from '../hooks/useDebounce.js';
 import { compactCount } from '../lib/format.js';
 import { searchApi } from '../api/index.js';
+import usePageMeta from '../lib/pageMeta.js';
 
 const TABS = [
   ['all', 'All'],
@@ -19,6 +20,7 @@ const TABS = [
 ];
 
 const SearchPage = () => {
+  usePageMeta('Search', 'Search posts, people and tags across JamiiChat.', { noindex: true });
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [query, setQuery] = useState(params.get('q') ?? '');
