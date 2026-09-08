@@ -119,7 +119,22 @@ const renderPath = (path) =>
     sink.on('finish', () => clearTimeout(timer));
   });
 
-const canonicalFor = (path) => `${SITE_URL}${path === '/' ? '/' : path}`;
+/*
+ * Trailing slash, because that is the URL actually served.
+ *
+ * Each route is written as `<route>/index.html`, and Netlify answers a request
+ * for `/login` with a 301 to `/login/`. Naming the un-slashed form in canonical
+ * and the sitemap points every entry at a URL that redirects: a crawler spends
+ * two requests to reach one document, and a canonical tag that resolves
+ * somewhere else is a weaker signal than one that does not move. Name the
+ * destination, not the doorway.
+ *
+ * This applies only to prerendered routes. Everything else is served by the SPA
+ * fallback at the path as written, with no directory and no redirect, which is
+ * why `usePageMeta` uses `location.pathname` unchanged rather than appending a
+ * slash of its own.
+ */
+const canonicalFor = (path) => `${SITE_URL}${path === '/' ? '/' : `${path}/`}`;
 
 for (const path of PRERENDER_PATHS) {
   const body = await renderPath(path);

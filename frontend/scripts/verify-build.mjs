@@ -69,7 +69,9 @@ for (const path of PRERENDER_PATHS) {
   }
 
   const canonical = html.match(/<link rel="canonical" href="([^"]*)"/)?.[1];
-  const expected = `${SITE_URL}${path === '/' ? '/' : path}`;
+  // Trailing slash: that is the URL Netlify serves for a prerendered route,
+  // and canonical has to name the document rather than the redirect to it.
+  const expected = `${SITE_URL}${path === '/' ? '/' : `${path}/`}`;
   if (canonical !== expected) {
     fail(`${path}: canonical is ${canonical ?? 'missing'}, expected ${expected}`);
   }
@@ -136,7 +138,7 @@ else {
 
 const sitemap = readFileSync(join(dist, 'sitemap.xml'), 'utf8');
 for (const path of ROUTES) {
-  const url = `${SITE_URL}${path === '/' ? '/' : path}`;
+  const url = `${SITE_URL}${path === '/' ? '/' : `${path}/`}`;
   if (!sitemap.includes(`<loc>${url}</loc>`)) fail(`sitemap.xml: ${url} missing`);
 }
 if (sitemap.includes('/404')) fail('sitemap.xml: lists /404, which is noindex');
