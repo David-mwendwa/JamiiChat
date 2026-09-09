@@ -57,7 +57,18 @@ for (const path of PRERENDER_PATHS) {
 
   // Greedy to the LAST closing div, which is the root's own. A non-greedy
   // match stops at the first nested </div> and reports every page as empty.
-  const root = html.match(/<div id="root">([\s\S]*)<\/div>/);
+  // The attribute wildcard matters: the root carries data-prerendered, and a
+  // pattern expecting a bare <div id="root"> matches nothing at all — which
+  // reports every page as empty and hides the failure this check exists to find.
+  const root = html.match(/<div id="root"[^>]*>([\s\S]*)<\/div>/);
+
+  // The stamp is what lets main.jsx tell "this file describes the route being
+  // asked for" from "Netlify handed me the SPA fallback". Without it the app
+  // hydrates the landing page against whatever route the reader wanted.
+  const stamp = html.match(/<div id="root" data-prerendered="([^"]*)"/)?.[1];
+  if (stamp !== path) {
+    fail(`${path}: data-prerendered is ${JSON.stringify(stamp)}, expected ${JSON.stringify(path)}`);
+  }
 
   // 500 characters is well above an empty root or a lone spinner, and well
   // below the smallest real page here (the 404, at ~1.4KB of markup).

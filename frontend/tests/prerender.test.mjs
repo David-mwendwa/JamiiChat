@@ -48,6 +48,13 @@ if (!executablePath) {
 
 const ROUTES = ['/', '/login', '/register', '/password/forgot'];
 
+// Routes with no file of their own. Netlify answers these with the SPA
+// fallback — index.html, i.e. the prerendered landing page — so the browser
+// receives a full page of markup describing a route it did not ask for. That
+// is the case that produced React #418 in production, and a test that visits
+// only the routes above cannot see it: they all match their own markup.
+const FALLBACK_ROUTES = ['/explore', '/notifications'];
+
 /*
  * A static server that resolves paths the way Netlify does.
  *
@@ -97,7 +104,7 @@ await new Promise((resolve) => server.listen(PORT, resolve));
 const browser = await chromium.launch({ executablePath });
 const failures = [];
 
-for (const route of ROUTES) {
+for (const route of [...ROUTES, ...FALLBACK_ROUTES]) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
 
@@ -154,4 +161,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`\n  ${ROUTES.length} prerendered routes hydrate cleanly`);
+console.log(
+  `\n  ${ROUTES.length} prerendered routes hydrate cleanly, ` +
+    `${FALLBACK_ROUTES.length} fallback routes mount without a mismatch`
+);

@@ -175,9 +175,14 @@ for (const path of PRERENDER_PATHS) {
 
   // The rendered app replaces the empty root, not the whole body: the shell's
   // scripts and stylesheet links are what make the page hydrate at all.
+  // Stamped with the path it was rendered for. Netlify answers every path it
+  // has no file for with this same SPA fallback — index.html, i.e. the
+  // prerendered *landing page* — so a non-empty root is not on its own proof
+  // that the markup describes the route being asked for. main.jsx compares the
+  // stamp before deciding to hydrate.
   const withBody = html.replace(
     '<div id="root"></div>',
-    `<div id="root">${body}</div>`
+    `<div id="root" data-prerendered="${escapeAttr(path)}">${body}</div>`
   );
   if (withBody === html) {
     throw new Error('prerender: <div id="root"></div> not found in index.html');
