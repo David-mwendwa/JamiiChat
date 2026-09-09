@@ -46,6 +46,15 @@ for (const path of PRERENDER_PATHS) {
   }
 
   const html = readFileSync(file, 'utf8');
+  // Authored comments must not reach production. The shell's notes about fonts,
+  // preconnects and managed meta tags are for the repo; view-source is not the
+  // place to publish them. React's own hydration markers — <!--$-->, <!--/$-->
+  // and the <!-- --> text separator — are required and are exempt.
+  const authored = [...html.matchAll(/<!--([\s\S]*?)-->/g)]
+    .map((m) => m[1])
+    .filter((c) => !/^\/?\$|^\s*-?\s*$/.test(c));
+  if (authored.length) fail(`${path}: ${authored.length} authored comment(s) reached the built HTML`);
+
   // Greedy to the LAST closing div, which is the root's own. A non-greedy
   // match stops at the first nested </div> and reports every page as empty.
   const root = html.match(/<div id="root">([\s\S]*)<\/div>/);
@@ -162,6 +171,33 @@ if (entry && entry.size > 300 * 1024) {
     `assets/${entry.f}: ${(entry.size / 1024).toFixed(0)}KB — the route splitting has regressed`
   );
 }
+
+// public/ is copied into dist untouched, so the notes in fonts.css, robots.txt
+// and the logo SVGs are served to anyone who opens them — a favicon is fetched
+// by every browser tab. fonts.css is also render-blocking, which puts its
+// comment bytes on the critical path. dist/assets is skipped: Vite minifies
+// what it emits there, and its `/*!` licence headers are meant to survive.
+const checkAssetComments = (dir) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'assets') continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      checkAssetComments(full);
+      continue;
+    }
+    const marker = entry.name.endsWith('.svg')
+      ? /<!--/
+      : entry.name.endsWith('.css')
+        ? /\/\*/
+        : entry.name.endsWith('.txt')
+          ? /^[ \t]*#/m
+          : null;
+    if (marker && marker.test(readFileSync(full, 'utf8'))) {
+      fail(`${full.slice(full.indexOf('dist'))}: authored comments reached the build`);
+    }
+  }
+};
+checkAssetComments(dist);
 
 if (failures.length) {
   console.error(`\nverify: ${failures.length} problem${failures.length === 1 ? '' : 's'}\n`);
